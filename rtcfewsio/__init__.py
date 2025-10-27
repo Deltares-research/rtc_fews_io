@@ -1,4 +1,4 @@
-from rtcfewsio.rtcfewsio import RFData, rf_read, rf_write, rf_getValues, rf_getTimesteps
+from rtcfewsio.rtcfewsio import RFData, rf_read, rf_write, rf_getValues, rf_getTimesteps, RFMixin
 
 
 __all__ = [
@@ -6,5 +6,6 @@ __all__ = [
     "rf_read",
     "rf_write",
     "rf_getValues",
-    "rf_getTimesteps"
+    "rf_getTimesteps",
+    "RFMixin"
 ]

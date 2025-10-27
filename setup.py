@@ -4,7 +4,7 @@ setup(
     name="rtcfewsio",
     version="0.1.0",
     packages=find_packages(),
-    install_requires=["fewsxml"],
+    install_requires=["fewsxml", "numpy", "rtctools"],
     author="Farid Alavi",
     author_email="farid.alavi@deltares.nl",
     description="A library that facilitates the input/output data exchange between RTC-Tools and Delft FEWS.",

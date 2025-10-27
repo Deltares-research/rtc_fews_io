@@ -2,12 +2,12 @@ import fewsxml as fx
 import logging
 import os
 
-from pyomo.core.kernel.parameter import parameter
-
-from timeseries import Timeseries
-import xml.etree.ElementTree as ET  # Added for rtcDataConfig parsing
-from typing import TypedDict, List, Dict
+from rtctools.optimization.timeseries import Timeseries
+from rtctools.optimization.collocated_integrated_optimization_problem import CollocatedIntegratedOptimizationProblem
+import xml.etree.ElementTree as ET
+from typing import TypedDict, Dict
 from datetime import datetime, timedelta
+import numpy as np
 
 logger = logging.getLogger("rtctools")
 
@@ -28,6 +28,19 @@ class RFData(TypedDict):
     prediction_horizon: int
     id_to_tsmeta: Dict[str, tuple]
     tsmeta_to_id: Dict[tuple, str]
+
+
+class RFMixin(CollocatedIntegratedOptimizationProblem):
+    """
+    Mixin to add RTC FEWS input/output functionality to CollocatedIntegratedOptimizationProblem.
+    """
+    def times(self, variable=None) -> np.ndarray:
+        """
+        Returns the times in seconds from the reference datetime onwards.
+
+        :param variable:
+        """
+        return np.array([0])
 
 
 def _get_timestep_size(fx_data) -> int:
