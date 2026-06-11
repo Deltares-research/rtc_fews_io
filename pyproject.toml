@@ -13,6 +13,7 @@ authors = [
 ]
 dependencies = [
     "fewsxml>=0.2.1",
+    "defusedxml>=0.7.0",
     "numpy>=1.23",
 ]
 [project.optional-dependencies]
