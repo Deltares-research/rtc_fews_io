@@ -1,4 +1,3 @@
 include README.md
 include LICENSE
-recursive-include rtcfewsio *.py
-
+recursive-include src *.py py.typed

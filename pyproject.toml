@@ -1,3 +1,29 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
+[project]
+name = "rtc-fews-io"
+version = "0.1.0"
+description = "FEWS PI-XML I/O helpers for RTC-Tools."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "Deltares" },
+]
+dependencies = [
+    "fewsxml>=0.2.1",
+    "numpy>=1.23",
+]
+[project.optional-dependencies]
+test = [
+    "pytest>=7",
+    "ruff>=0.5",
+]
+[tool.setuptools.packages.find]
+where = ["src"]
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+[tool.pytest.ini_options]
+testpaths = ["tests"]
