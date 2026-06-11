@@ -56,6 +56,8 @@ def test_pads_series_with_different_ranges():
     pi = _make_two_range_model()
     ts = FewsTimeSeries.from_pi_timeseries(pi)
     assert ts.times == [datetime(2024, 1, 1, h) for h in range(4)]
+    assert ts.forecast_datetime == datetime(2024, 1, 1, 1)
+    assert ts.forecast_index == 1
     np.testing.assert_allclose(ts.get("A:x"), [1.0, 2.0, np.nan, np.nan], equal_nan=True)
     np.testing.assert_allclose(ts.get("B:y"), [np.nan, 3.0, 4.0, 5.0], equal_nan=True)
 

@@ -346,7 +346,7 @@ def _forecast_datetime(series_infos: list[_SeriesInfo], start_datetime: datetime
         info.forecast_datetime for info in series_infos if info.forecast_datetime is not None
     ]
     if not explicit:
-        return start_datetime
+        return max(info.start_datetime for info in series_infos)
     first = explicit[0]
     if any(value != first for value in explicit[1:]):
         raise ValueError("Not all PI time series share the same forecastDate.")
