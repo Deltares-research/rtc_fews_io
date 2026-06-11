@@ -16,6 +16,20 @@ files:
 - `ParameterConfig` reads and writes scalar PI model parameters and reads table
   parameters from `rtcParameterConfig.xml`-style files.
 
+Phase 4/5 add the public `FewsIOMixin` integration layer. The mixin uses the
+new parsers and XML-only `FewsTimeSeries` adapter to:
+- read mapped PI TimeSeries XML into an RTC-Tools-style datastore;
+- read one or more parameter configuration files;
+- apply numerical parameter configuration values as solver options;
+- write mapped PI TimeSeries XML output;
+- dispatch small optimization/simulation behavior differences through one
+  public mixin (`fews_io_mode="auto"`, `"optimization"`, or `"simulation"`).
+
+The test suite uses small synthetic FEWS/RTC-style XML fixtures for mixin
+behavior instead of copying RTC-Tools' LGPL test files. Some adapter tests can
+optionally read RTC-Tools fixture data when `RTC_TOOLS_ROOT` points to a local
+RTC-Tools checkout.
+
 ## Development
 ```powershell
 python -m pip install -e .[test]
