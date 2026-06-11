@@ -76,6 +76,16 @@ class _BaseProblem:
         self.io = _Store()
 
 
+class _AbstractTimeseriesBase(_BaseProblem):
+    def get_timeseries(self, variable, ensemble_member=0):
+        del variable, ensemble_member
+        raise NotImplementedError
+
+    def set_timeseries(self, variable, values, ensemble_member=0, output=True, check_consistency=True):
+        del variable, values, ensemble_member, output, check_consistency
+        raise NotImplementedError
+
+
 class _OptimizationProblem(FewsIOMixin, _BaseProblem):
     fews_io_mode = "optimization"
     pi_parameter_config_basenames = ["rtcParameterConfig"]
@@ -90,6 +100,10 @@ class _OptimizationProblem(FewsIOMixin, _BaseProblem):
 
     def extract_results(self, ensemble_member):
         return {"x": np.asarray([ensemble_member + 10.0, ensemble_member + 11.0, ensemble_member + 12.0])}
+
+
+class _OptimizationProblemWithAbstractTimeseriesBase(FewsIOMixin, _AbstractTimeseriesBase):
+    fews_io_mode = "optimization"
 
 
 class _SimulationProblem(FewsIOMixin, _BaseProblem):
@@ -145,6 +159,20 @@ def test_fews_io_mixin_reads_selected_simulation_ensemble_and_writes_single_outp
     exported = FewsTimeSeries.read(tmp_path / "timeseries_export.xml")
     assert exported.ensemble_size == 1
     np.testing.assert_allclose(exported.get("Loc:X"), [20.0, 21.0, 22.0])
+
+
+def test_fews_io_mixin_get_timeseries_ignores_abstract_super_placeholder(tmp_path):
+    _write_case(tmp_path)
+    problem = _OptimizationProblemWithAbstractTimeseriesBase(input_folder=tmp_path, output_folder=tmp_path)
+
+    problem.read()
+
+    imported = problem.get_timeseries("x")
+    np.testing.assert_allclose(imported.values, [1.0, 2.0, 3.0])
+
+    problem.set_timeseries("x", [7.0, 8.0, 9.0], unit="m")
+    updated = problem.get_timeseries("x")
+    np.testing.assert_allclose(updated.values, [7.0, 8.0, 9.0])
 
 
 def _write_case(folder: Path) -> None:

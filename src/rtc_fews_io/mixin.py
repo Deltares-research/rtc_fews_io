@@ -287,19 +287,32 @@ class FewsIOMixin:
         if unit is not None and self.__timeseries_import is not None:
             self.__timeseries_import.set_unit(variable, unit, min(ensemble_member, self.__timeseries_import.ensemble_size - 1))
 
-        called_super = _call_super_if_present(
-            super(),
-            "set_timeseries",
-            variable,
-            values,
-            *args,
-            unit=unit,
-            output=output,
-            check_consistency=check_consistency,
-            ensemble_member=ensemble_member,
-            default=_NO_SUPER,
-            **kwargs,
-        )
+        if self._is_simulation_mode():
+            called_super = _call_super_if_present(
+                super(),
+                "set_timeseries",
+                variable,
+                values,
+                *args,
+                output=output,
+                check_consistency=check_consistency,
+                unit=unit,
+                default=_NO_SUPER,
+                **kwargs,
+            )
+        else:
+            called_super = _call_super_if_present(
+                super(),
+                "set_timeseries",
+                variable,
+                values,
+                *args,
+                ensemble_member=ensemble_member,
+                output=output,
+                check_consistency=check_consistency,
+                default=_NO_SUPER,
+                **kwargs,
+            )
         if called_super is not _NO_SUPER:
             return
 
@@ -333,9 +346,13 @@ class FewsIOMixin:
     def get_timeseries(self, variable: str, ensemble_member: int = 0) -> Any:
         """Return a RTC-Tools Timeseries object when available, otherwise a small fallback."""
         try:
-            return _call_super_if_present(super(), "get_timeseries", variable, ensemble_member, default=_NO_SUPER)
+            super_timeseries = _call_super_if_present(
+                super(), "get_timeseries", variable, ensemble_member, default=_NO_SUPER
+            )
         except TypeError:
-            pass
+            super_timeseries = _NO_SUPER
+        if super_timeseries is not _NO_SUPER:
+            return super_timeseries
         times, values = self.io.get_timeseries_sec(variable, ensemble_member)
         cls = _rtctools_timeseries_class()
         return cls(times, values) if cls is not None else TimeseriesValues(times, values)
@@ -476,7 +493,10 @@ def _call_super_if_present(super_proxy: Any, name: str, *args: Any, default: Any
     method = getattr(super_proxy, name, None)
     if method is None:
         return default
-    return method(*args, **kwargs)
+    try:
+        return method(*args, **kwargs)
+    except NotImplementedError:
+        return default
 
 
 def _map_import_timeseries(timeseries: FewsTimeSeries, data_config: DataConfig) -> FewsTimeSeries:
