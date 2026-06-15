@@ -53,8 +53,12 @@ class FewsIOMixin:
 
     def __init__(self, **kwargs: Any):
         super().__init__(**kwargs)
-        self._input_folder = getattr(self, "_input_folder", kwargs.get("input_folder", "input"))
-        self._output_folder = getattr(self, "_output_folder", kwargs.get("output_folder", "output"))
+        self._input_folder = getattr(
+            self, "_input_folder", kwargs.get("input_folder", "input")
+        )
+        self._output_folder = getattr(
+            self, "_output_folder", kwargs.get("output_folder", "output")
+        )
         self.__data_config = DataConfig(self._input_folder)
         self.__parameter_config: list[ParameterConfig] = []
         self.__parameter_config_numerical: ParameterConfig | None = None
@@ -72,7 +76,9 @@ class FewsIOMixin:
     def read(self) -> None:
         """Read FEWS input files and populate the RTC-Tools-style datastore."""
         if self.pi_binary_timeseries:
-            raise NotImplementedError("FewsIOMixin intentionally supports XML PI TimeSeries only.")
+            raise NotImplementedError(
+                "FewsIOMixin intentionally supports XML PI TimeSeries only."
+            )
 
         _call_super_if_present(super(), "read")
 
@@ -87,16 +93,24 @@ class FewsIOMixin:
         except FileNotFoundError:
             self.__parameter_config_numerical = None
 
-        import_path = Path(self._input_folder) / f"{self.timeseries_import_basename}.xml"
+        import_path = (
+            Path(self._input_folder) / f"{self.timeseries_import_basename}.xml"
+        )
         if not import_path.exists():
-            raise FileNotFoundError(f"FewsIOMixin: {import_path.name} not found in {self._input_folder}.")
+            raise FileNotFoundError(
+                f"FewsIOMixin: {import_path.name} not found in {self._input_folder}."
+            )
 
         raw_timeseries = FewsTimeSeries.read(import_path)
-        self.__timeseries_import = _map_import_timeseries(raw_timeseries, self.__data_config)
+        self.__timeseries_import = _map_import_timeseries(
+            raw_timeseries, self.__data_config
+        )
         self.__timeseries_export = _new_output_timeseries(self.__timeseries_import)
 
         if self.pi_validate_timeseries:
-            _validate_times(self.__timeseries_import, require_equidistant=self._is_simulation_mode())
+            _validate_times(
+                self.__timeseries_import, require_equidistant=self._is_simulation_mode()
+            )
 
         self.io.reference_datetime = self.__timeseries_import.forecast_datetime
 
@@ -114,7 +128,12 @@ class FewsIOMixin:
             options = dict(options)
 
         if self.__parameter_config_numerical is not None:
-            for _location_id, _model_id, option, value in self.__parameter_config_numerical:
+            for (
+                _location_id,
+                _model_id,
+                option,
+                value,
+            ) in self.__parameter_config_numerical:
                 options[option] = value
         return options
 
@@ -128,7 +147,9 @@ class FewsIOMixin:
     def parameters(self, ensemble_member: int = 0) -> dict[str, Any]:
         """Return model parameters merged with parameters read from FEWS files."""
         try:
-            parameters = _call_super_if_present(super(), "parameters", ensemble_member, default={})
+            parameters = _call_super_if_present(
+                super(), "parameters", ensemble_member, default={}
+            )
         except TypeError:
             parameters = _call_super_if_present(super(), "parameters", default={})
         if parameters is None:
@@ -140,9 +161,16 @@ class FewsIOMixin:
 
     def constant_inputs(self, ensemble_member: int) -> dict[str, Any]:
         """Return constant-input time series augmented with imported FEWS values."""
-        constant_inputs = _call_super_if_present(super(), "constant_inputs", ensemble_member, default={}) or {}
+        constant_inputs = (
+            _call_super_if_present(
+                super(), "constant_inputs", ensemble_member, default={}
+            )
+            or {}
+        )
         constant_inputs = dict(constant_inputs)
-        start = bisect.bisect_left(self.io.times_sec, getattr(self, "initial_time", 0.0))
+        start = bisect.bisect_left(
+            self.io.times_sec, getattr(self, "initial_time", 0.0)
+        )
         for symbol in getattr(self, "dae_variables", {}).get("constant_inputs", ()):
             variable = symbol.name() if hasattr(symbol, "name") else str(symbol)
             try:
@@ -151,15 +179,23 @@ class FewsIOMixin:
                 continue
             selected = np.asarray(values[start:], dtype=float)
             if np.any(np.isnan(selected)):
-                raise ValueError(f"FewsIOMixin: constant input {variable!r} contains NaN.")
+                raise ValueError(
+                    f"FewsIOMixin: constant input {variable!r} contains NaN."
+                )
             constant_inputs[variable] = _timeseries_container(times[start:], selected)
         return constant_inputs
 
     def history(self, ensemble_member: int) -> dict[str, Any]:
         """Return history time series up to and including the initial time."""
-        history = _call_super_if_present(super(), "history", ensemble_member, default={}) or {}
+        history = (
+            _call_super_if_present(super(), "history", ensemble_member, default={})
+            or {}
+        )
         history = dict(history)
-        end = bisect.bisect_left(self.io.times_sec, getattr(self, "initial_time", 0.0)) + 1
+        end = (
+            bisect.bisect_left(self.io.times_sec, getattr(self, "initial_time", 0.0))
+            + 1
+        )
         for variable in _dae_variable_names(
             self,
             "states",
@@ -176,7 +212,9 @@ class FewsIOMixin:
 
     def seed(self, ensemble_member: int) -> dict[str, Any]:
         """Return seed values augmented with imported free-variable time series."""
-        seed = _call_super_if_present(super(), "seed", ensemble_member, default={}) or {}
+        seed = (
+            _call_super_if_present(super(), "seed", ensemble_member, default={}) or {}
+        )
         seed = dict(seed)
         for variable in _dae_variable_names(self, "free_variables"):
             try:
@@ -191,12 +229,16 @@ class FewsIOMixin:
     def bounds(self, ensemble_member: int | None = None) -> dict[str, Any]:
         """Return bounds augmented with ``<variable>_Min``/``<variable>_Max`` FEWS series."""
         try:
-            bounds = _call_super_if_present(super(), "bounds", ensemble_member, default={})
+            bounds = _call_super_if_present(
+                super(), "bounds", ensemble_member, default={}
+            )
         except TypeError:
             bounds = _call_super_if_present(super(), "bounds", default={})
         bounds = dict(bounds or {})
         member = 0 if ensemble_member is None else ensemble_member
-        start = bisect.bisect_left(self.io.times_sec, getattr(self, "initial_time", 0.0))
+        start = bisect.bisect_left(
+            self.io.times_sec, getattr(self, "initial_time", 0.0)
+        )
         for variable in _dae_variable_names(self, "free_variables"):
             lower = _bound_series(self, f"{variable}_Min", member, start, lower=True)
             upper = _bound_series(self, f"{variable}_Max", member, start, lower=False)
@@ -250,7 +292,9 @@ class FewsIOMixin:
         """Return simulation outputs, or delegate to the host optimization problem."""
         if not self._is_simulation_mode() or not hasattr(self, "_io_output"):
             return _call_super_if_present(super(), "extract_results", *args, **kwargs)
-        return {variable: np.asarray(values) for variable, values in self._io_output.items()}
+        return {
+            variable: np.asarray(values) for variable, values in self._io_output.items()
+        }
 
     def timeseries_at(self, variable: str, t: float, ensemble_member: int = 0) -> float:
         """Interpolate an imported time series at seconds ``t``."""
@@ -263,8 +307,14 @@ class FewsIOMixin:
         if self.__timeseries_import is None:
             raise RuntimeError("FewsIOMixin.write() called before read().")
 
-        output = self._collect_simulation_output() if self._is_simulation_mode() else self._collect_optimization_output()
-        output.write(Path(self._output_folder) / f"{self.timeseries_export_basename}.xml")
+        output = (
+            self._collect_simulation_output()
+            if self._is_simulation_mode()
+            else self._collect_optimization_output()
+        )
+        output.write(
+            Path(self._output_folder) / f"{self.timeseries_export_basename}.xml"
+        )
         self.__timeseries_export = output
 
     def set_timeseries(
@@ -285,7 +335,11 @@ class FewsIOMixin:
         sync for simulation-like use cases.
         """
         if unit is not None and self.__timeseries_import is not None:
-            self.__timeseries_import.set_unit(variable, unit, min(ensemble_member, self.__timeseries_import.ensemble_size - 1))
+            self.__timeseries_import.set_unit(
+                variable,
+                unit,
+                min(ensemble_member, self.__timeseries_import.ensemble_size - 1),
+            )
 
         if self._is_simulation_mode():
             called_super = _call_super_if_present(
@@ -322,24 +376,35 @@ class FewsIOMixin:
         array = _values_from_argument(values)
         if check_consistency and len(array) != len(self.times()):
             raise ValueError(
-                f"FewsIOMixin: values for {variable!r} have length {len(array)}, expected {len(self.times())}."
+                (
+                    f"FewsIOMixin: values for {variable!r} have length {len(array)}, "
+                    f"expected {len(self.times())}."
+                )
             )
         datetimes = self.__timeseries_import.times
-        padded = _pad_forecast_values(datetimes, self.__timeseries_import.forecast_datetime, array)
-        self.__timeseries_import.set(variable, padded, unit=unit, ensemble_member=ensemble_member)
+        padded = _pad_forecast_values(
+            datetimes, self.__timeseries_import.forecast_datetime, array
+        )
+        self.__timeseries_import.set(
+            variable, padded, unit=unit, ensemble_member=ensemble_member
+        )
         self.io.set_timeseries(variable, datetimes, padded, ensemble_member)
 
         if output and self.__timeseries_export is not None:
             try:
                 key = _pi_key_for_variable(self.__data_config, variable)
             except KeyError:
-                logger.debug("FewsIOMixin: variable %s has no rtcDataConfig mapping; not exporting.", variable)
+                logger.debug(
+                    "FewsIOMixin: variable %s has no rtcDataConfig mapping; not exporting.",
+                    variable,
+                )
             else:
                 self.__timeseries_export.set(
                     variable,
                     padded,
                     key=key,
-                    unit=unit or self.__timeseries_import.get_unit(variable, ensemble_member),
+                    unit=unit
+                    or self.__timeseries_import.get_unit(variable, ensemble_member),
                     ensemble_member=ensemble_member,
                 )
 
@@ -355,7 +420,9 @@ class FewsIOMixin:
             return super_timeseries
         times, values = self.io.get_timeseries_sec(variable, ensemble_member)
         cls = _rtctools_timeseries_class()
-        return cls(times, values) if cls is not None else TimeseriesValues(times, values)
+        return (
+            cls(times, values) if cls is not None else TimeseriesValues(times, values)
+        )
 
     @property
     def timeseries_import(self) -> FewsTimeSeries:
@@ -375,7 +442,9 @@ class FewsIOMixin:
 
     @property
     def ensemble_size(self) -> int:
-        return int(getattr(self.io, "ensemble_size", self.timeseries_import.ensemble_size))
+        return int(
+            getattr(self.io, "ensemble_size", self.timeseries_import.ensemble_size)
+        )
 
     def set_unit(self, variable: str, unit: str) -> None:
         """Set a unit on import and export buffers."""
@@ -386,10 +455,14 @@ class FewsIOMixin:
         assert self.__timeseries_import is not None
         for ensemble_member in range(self.__timeseries_import.ensemble_size):
             for variable, values in self.__timeseries_import.items(ensemble_member):
-                self.io.set_timeseries(variable, self.__timeseries_import.times, values, ensemble_member)
+                self.io.set_timeseries(
+                    variable, self.__timeseries_import.times, values, ensemble_member
+                )
             for parameter_config in self.__parameter_config:
                 for location_id, model_id, parameter_id, value in parameter_config:
-                    parameter = _map_parameter(self.__data_config, parameter_id, location_id, model_id)
+                    parameter = _map_parameter(
+                        self.__data_config, parameter_id, location_id, model_id
+                    )
                     self.io.set_parameter(
                         parameter,
                         value,
@@ -399,10 +472,17 @@ class FewsIOMixin:
 
     def _read_simulation_inputs(self) -> None:
         assert self.__timeseries_import is not None
-        member = self.pi_ensemble_member if self.__timeseries_import.contains_ensemble else 0
+        member = (
+            self.pi_ensemble_member if self.__timeseries_import.contains_ensemble else 0
+        )
         for parameter_config in self.__parameter_config:
             for location_id, model_id, parameter_id, value in parameter_config:
-                self.io.set_parameter(_map_parameter(self.__data_config, parameter_id, location_id, model_id), value)
+                self.io.set_parameter(
+                    _map_parameter(
+                        self.__data_config, parameter_id, location_id, model_id
+                    ),
+                    value,
+                )
         for variable, values in self.__timeseries_import.items(member):
             self.io.set_timeseries(variable, self.__timeseries_import.times, values)
 
@@ -411,30 +491,42 @@ class FewsIOMixin:
         seconds = np.asarray(self.times(), dtype=float)
         output = _new_output_timeseries(
             self.__timeseries_import,
-            times=[self.__timeseries_import.forecast_datetime + timedelta(seconds=float(s)) for s in seconds],
+            times=[
+                self.__timeseries_import.forecast_datetime + timedelta(seconds=float(s))
+                for s in seconds
+            ],
             dt=_seconds_step(seconds),
             ensemble_size=self.ensemble_size,
             contains_ensemble=self.ensemble_size > 1,
         )
         for ensemble_member in range(self.ensemble_size):
             results = self.extract_results(ensemble_member)
-            for variable in _output_variable_names(getattr(self, "output_variables", ())):
+            for variable in _output_variable_names(
+                getattr(self, "output_variables", ())
+            ):
                 for alias in _aliases(self, variable):
                     values = _result_values(results, alias)
                     if values is None:
                         values = _stored_values(self, alias, ensemble_member)
                     if values is None:
-                        logger.error("FewsIOMixin: output requested for missing alias %s.", alias)
+                        logger.error(
+                            "FewsIOMixin: output requested for missing alias %s.", alias
+                        )
                         continue
                     self._add_output_series(output, alias, values, ensemble_member)
         return output
 
     def _collect_simulation_output(self) -> FewsTimeSeries:
         assert self.__timeseries_import is not None
-        seconds = np.asarray(getattr(self, "_simulation_times", self.times()), dtype=float)
+        seconds = np.asarray(
+            getattr(self, "_simulation_times", self.times()), dtype=float
+        )
         output = _new_output_timeseries(
             self.__timeseries_import,
-            times=[self.io.reference_datetime + timedelta(seconds=float(s)) for s in seconds],
+            times=[
+                self.io.reference_datetime + timedelta(seconds=float(s))
+                for s in seconds
+            ],
             dt=_seconds_step(seconds),
             ensemble_size=1,
             contains_ensemble=self.__timeseries_import.contains_ensemble,
@@ -444,12 +536,17 @@ class FewsIOMixin:
             self._add_output_series(output, variable, values, 0)
         return output
 
-    def _add_output_series(self, output: FewsTimeSeries, variable: str, values: Any, ensemble_member: int) -> None:
+    def _add_output_series(
+        self, output: FewsTimeSeries, variable: str, values: Any, ensemble_member: int
+    ) -> None:
         assert self.__timeseries_import is not None
         try:
             key = _pi_key_for_variable(self.__data_config, variable)
         except KeyError:
-            logger.debug("FewsIOMixin: variable %s has no rtcDataConfig mapping; not exporting.", variable)
+            logger.debug(
+                "FewsIOMixin: variable %s has no rtcDataConfig mapping; not exporting.",
+                variable,
+            )
             return
 
         array = np.asarray(values, dtype=float)
@@ -473,7 +570,9 @@ class FewsIOMixin:
             return True
         if any("rtctools.optimization" in module for module in modules):
             return False
-        return hasattr(self, "_simulation_times") or hasattr(self, "_io_output_variables")
+        return hasattr(self, "_simulation_times") or hasattr(
+            self, "_io_output_variables"
+        )
 
     def __set_simulation_inputs(self, index: int) -> None:
         available = set(_timeseries_names(self.io))
@@ -489,7 +588,9 @@ class FewsIOMixin:
 _NO_SUPER = object()
 
 
-def _call_super_if_present(super_proxy: Any, name: str, *args: Any, default: Any = None, **kwargs: Any) -> Any:
+def _call_super_if_present(
+    super_proxy: Any, name: str, *args: Any, default: Any = None, **kwargs: Any
+) -> Any:
     method = getattr(super_proxy, name, None)
     if method is None:
         return default
@@ -499,7 +600,9 @@ def _call_super_if_present(super_proxy: Any, name: str, *args: Any, default: Any
         return default
 
 
-def _map_import_timeseries(timeseries: FewsTimeSeries, data_config: DataConfig) -> FewsTimeSeries:
+def _map_import_timeseries(
+    timeseries: FewsTimeSeries, data_config: DataConfig
+) -> FewsTimeSeries:
     mapped = FewsTimeSeries(
         times=list(timeseries.times),
         timezone=timeseries.timezone,
@@ -538,7 +641,9 @@ def _new_output_timeseries(
         timezone=source.timezone,
         forecast_datetime=source.forecast_datetime,
         dt=source.dt if dt is _NO_SUPER else dt,
-        contains_ensemble=source.contains_ensemble if contains_ensemble is None else contains_ensemble,
+        contains_ensemble=(
+            source.contains_ensemble if contains_ensemble is None else contains_ensemble
+        ),
         ensemble_size=source.ensemble_size if ensemble_size is None else ensemble_size,
         version=source.version,
         miss_value=source.miss_value,
@@ -546,15 +651,26 @@ def _new_output_timeseries(
 
 
 def _validate_times(timeseries: FewsTimeSeries, *, require_equidistant: bool) -> None:
-    if any(left >= right for left, right in zip(timeseries.times, timeseries.times[1:], strict=False)):
+    if any(
+        left >= right
+        for left, right in zip(timeseries.times, timeseries.times[1:], strict=False)
+    ):
         raise ValueError("FewsIOMixin: Time stamps must be strictly increasing.")
     if require_equidistant and len(timeseries.times) > 2:
         step = timeseries.times[1] - timeseries.times[0]
-        if any(right - left != step for left, right in zip(timeseries.times, timeseries.times[1:], strict=False)):
+        if any(
+            right - left != step
+            for left, right in zip(timeseries.times, timeseries.times[1:], strict=False)
+        ):
             raise ValueError("FewsIOMixin: Expecting equidistant timeseries.")
 
 
-def _map_parameter(data_config: DataConfig, parameter_id: str, location_id: str | None, model_id: str | None) -> str:
+def _map_parameter(
+    data_config: DataConfig,
+    parameter_id: str,
+    location_id: str | None,
+    model_id: str | None,
+) -> str:
     try:
         return data_config.parameter(parameter_id, location_id, model_id)
     except KeyError:
@@ -592,7 +708,9 @@ def _result_values(results: Mapping[str, Any], variable: str) -> np.ndarray | No
         return None
 
 
-def _stored_values(problem: Any, variable: str, ensemble_member: int) -> np.ndarray | None:
+def _stored_values(
+    problem: Any, variable: str, ensemble_member: int
+) -> np.ndarray | None:
     try:
         ts = problem.get_timeseries(variable, ensemble_member)
     except KeyError:
@@ -607,17 +725,23 @@ def _dae_variable_names(problem: Any, *groups: str) -> list[str]:
     dae_variables = getattr(problem, "dae_variables", {})
     for group in groups:
         for variable in dae_variables.get(group, ()):
-            names.append(variable.name() if hasattr(variable, "name") else str(variable))
+            names.append(
+                variable.name() if hasattr(variable, "name") else str(variable)
+            )
     return names
 
 
-def _bound_series(problem: Any, variable: str, ensemble_member: int, start: int, *, lower: bool) -> Any:
+def _bound_series(
+    problem: Any, variable: str, ensemble_member: int, start: int, *, lower: bool
+) -> Any:
     try:
         times, values = problem.io.get_timeseries_sec(variable, ensemble_member)
     except KeyError:
         return None
     values = np.asarray(values[start:], dtype=float).copy()
-    values[np.isnan(values)] = np.finfo(values.dtype).min if lower else np.finfo(values.dtype).max
+    values[np.isnan(values)] = (
+        np.finfo(values.dtype).min if lower else np.finfo(values.dtype).max
+    )
     return _timeseries_container(times[start:], values)
 
 
@@ -625,7 +749,11 @@ def _timeseries_container(times: Iterable[float], values: Iterable[float]) -> An
     cls = _rtctools_timeseries_class()
     times_array = np.asarray(times, dtype=float)
     values_array = np.asarray(values, dtype=float)
-    return cls(times_array, values_array) if cls is not None else TimeseriesValues(times_array, values_array)
+    return (
+        cls(times_array, values_array)
+        if cls is not None
+        else TimeseriesValues(times_array, values_array)
+    )
 
 
 def _timeseries_names(io: Any) -> Iterable[str]:
@@ -652,14 +780,16 @@ def _values_from_argument(values: Any) -> np.ndarray:
     return np.asarray(values, dtype=float)
 
 
-def _pad_forecast_values(datetimes: list[datetime], forecast_datetime: datetime | None, values: np.ndarray) -> np.ndarray:
+def _pad_forecast_values(
+    datetimes: list[datetime], forecast_datetime: datetime | None, values: np.ndarray
+) -> np.ndarray:
     if len(values) == len(datetimes):
         return values
     if forecast_datetime is None:
         raise ValueError("Cannot pad forecast values without a forecast datetime.")
     start = datetimes.index(forecast_datetime)
     padded = np.full(len(datetimes), np.nan, dtype=float)
-    padded[start : start + len(values)] = values
+    padded[start:start + len(values)] = values
     return padded
 
 
@@ -672,15 +802,24 @@ def _seconds_step(seconds: np.ndarray) -> timedelta | None:
     return None
 
 
-def _interpolate_if_possible(problem: Any, variable: str, output_times: list[datetime], values: np.ndarray) -> np.ndarray:
+def _interpolate_if_possible(
+    problem: Any, variable: str, output_times: list[datetime], values: np.ndarray
+) -> np.ndarray:
     if not hasattr(problem, "interpolate"):
-        raise ValueError(f"Output values for {variable!r} do not match the export time axis length.")
-    target_seconds = np.asarray(problem.io.datetime_to_sec(output_times, problem.io.reference_datetime), dtype=float)
+        raise ValueError(
+            f"Output values for {variable!r} do not match the export time axis length."
+        )
+    target_seconds = np.asarray(
+        problem.io.datetime_to_sec(output_times, problem.io.reference_datetime),
+        dtype=float,
+    )
     try:
         source_seconds = np.asarray(problem.times(variable), dtype=float)
     except TypeError:
         source_seconds = np.asarray(problem.times(), dtype=float)
-    return np.asarray(problem.interpolate(target_seconds, source_seconds, values), dtype=float)
+    return np.asarray(
+        problem.interpolate(target_seconds, source_seconds, values), dtype=float
+    )
 
 
 def _rtctools_timeseries_class() -> type[Any] | None:
@@ -689,7 +828,3 @@ def _rtctools_timeseries_class() -> type[Any] | None:
     except Exception:
         return None
     return Timeseries
-
-
-
-
