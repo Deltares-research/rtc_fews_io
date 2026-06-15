@@ -97,4 +97,4 @@ jobs:
         # Since id-token: write permission was added to the job, this step
         # will retrieve an OIDC token and publish to PyPI without needing
         # any explicit token or credentials.
-        uses: pypa/gh-action-pypi-publish@v1.5.0
+        uses: pypa/gh-action-pypi-publish@v1.13.0
