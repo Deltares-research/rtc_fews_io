@@ -20,7 +20,14 @@ dependencies = [
 test = [
     "pytest>=7",
 ]
+dev = [
+    "pre-commit",
+]
 [tool.setuptools.packages.find]
 where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+
+[tool.black]
+line-length = 100

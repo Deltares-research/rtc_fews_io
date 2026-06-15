@@ -80,8 +80,12 @@ class FewsTimeSeries:
         end_datetime = max(info.end_datetime for info in series_infos)
         times = _global_times(series_infos, start_datetime, end_datetime, dt)
         forecast_datetime = _forecast_datetime(series_infos, start_datetime)
-        forecast_index = _index_or_none(times, forecast_datetime) if forecast_datetime else None
-        ensemble_indexes = {info.ensemble_member for info in series_infos if info.has_ensemble}
+        forecast_index = (
+            _index_or_none(times, forecast_datetime) if forecast_datetime else None
+        )
+        ensemble_indexes = {
+            info.ensemble_member for info in series_infos if info.has_ensemble
+        }
         contains_ensemble, ensemble_size = _ensemble_metadata(ensemble_indexes)
         normalized = cls(
             times=times,
@@ -129,7 +133,9 @@ class FewsTimeSeries:
     @property
     def forecast_index(self) -> int | None:
         """Index of `forecast_datetime` in `times`, or `None` if outside the range."""
-        return getattr(self, "_forecast_index", _index_or_none(self.times, self.forecast_datetime))
+        return getattr(
+            self, "_forecast_index", _index_or_none(self.times, self.forecast_datetime)
+        )
 
     @property
     def start_datetime(self) -> datetime:
@@ -223,7 +229,11 @@ class FewsTimeSeries:
                 events = [
                     {
                         "date": time,
-                        "value": self.miss_value if _is_missing_value(value) else float(value),
+                        "value": (
+                            self.miss_value
+                            if _is_missing_value(value)
+                            else float(value)
+                        ),
                     }
                     for time, value in zip(self.times, values, strict=True)
                 ]
@@ -238,7 +248,9 @@ class FewsTimeSeries:
         """Write normalized data as PI TimeSeries XML."""
         fx.write(self.to_pi_timeseries(), str(path))
 
-    def _require_ensemble_member(self, ensemble_member: int, *, allow_create: bool = False) -> None:
+    def _require_ensemble_member(
+        self, ensemble_member: int, *, allow_create: bool = False
+    ) -> None:
         if ensemble_member < 0:
             raise KeyError(f"ensemble_member {ensemble_member} does not exist")
         if ensemble_member >= self.ensemble_size:
@@ -270,14 +282,18 @@ class _SeriesInfo:
             key=PiSeriesKey.from_header(header),
             start_datetime=_parse_pi_datetime(header.startDate),
             end_datetime=_parse_pi_datetime(header.endDate),
-            forecast_datetime=_parse_pi_datetime(header.forecastDate)
-            if header.forecastDate is not None
-            else None,
+            forecast_datetime=(
+                _parse_pi_datetime(header.forecastDate)
+                if header.forecastDate is not None
+                else None
+            ),
             time_step=_parse_time_step(header.timeStep),
             has_ensemble=header.ensembleMemberIndex is not None,
-            ensemble_member=header.ensembleMemberIndex
-            if header.ensembleMemberIndex is not None
-            else 0,
+            ensemble_member=(
+                header.ensembleMemberIndex
+                if header.ensembleMemberIndex is not None
+                else 0
+            ),
             miss_value=float(header.missVal) if header.missVal is not None else -999.0,
             unit=header.units,
         )
@@ -288,7 +304,9 @@ def _parse_pi_datetime(value: fx.PIDateTime) -> datetime:
 
 
 def _pi_datetime(value: datetime) -> fx.PIDateTime:
-    return fx.PIDateTime(date=value.strftime("%Y-%m-%d"), time=value.strftime("%H:%M:%S"))
+    return fx.PIDateTime(
+        date=value.strftime("%Y-%m-%d"), time=value.strftime("%H:%M:%S")
+    )
 
 
 def _event_datetime(event: fx.PIEvent) -> datetime:
@@ -303,7 +321,9 @@ def _parse_time_step(time_step: fx.PITimeStep | None) -> timedelta | None:
     unit = time_step.unit
     if unit == "nonequidistant":
         return None
-    multiplier = time_step.multiplier if time_step.multiplier is not None else time_step.minutes
+    multiplier = (
+        time_step.multiplier if time_step.multiplier is not None else time_step.minutes
+    )
     if multiplier is None:
         multiplier = 1
     multiplier = int(multiplier)
@@ -335,15 +355,27 @@ def _global_times(
     dt: timedelta | None,
 ) -> list[datetime]:
     if dt is None:
-        times = {_event_datetime(event) for info in series_infos for event in info.series.event}
-        return [time for time in sorted(times) if start_datetime <= time <= end_datetime]
-    n_steps = int(round((end_datetime - start_datetime).total_seconds() / dt.total_seconds()))
+        times = {
+            _event_datetime(event)
+            for info in series_infos
+            for event in info.series.event
+        }
+        return [
+            time for time in sorted(times) if start_datetime <= time <= end_datetime
+        ]
+    n_steps = int(
+        round((end_datetime - start_datetime).total_seconds() / dt.total_seconds())
+    )
     return [start_datetime + i * dt for i in range(n_steps + 1)]
 
 
-def _forecast_datetime(series_infos: list[_SeriesInfo], start_datetime: datetime) -> datetime:
+def _forecast_datetime(
+    series_infos: list[_SeriesInfo], start_datetime: datetime
+) -> datetime:
     explicit = [
-        info.forecast_datetime for info in series_infos if info.forecast_datetime is not None
+        info.forecast_datetime
+        for info in series_infos
+        if info.forecast_datetime is not None
     ]
     if not explicit:
         return max(info.start_datetime for info in series_infos)
@@ -374,7 +406,9 @@ def _values_on_global_axis(
         try:
             index = time_to_index[event_time]
         except KeyError as exc:
-            raise ValueError(f"Event time {event_time} is outside the global time axis.") from exc
+            raise ValueError(
+                f"Event time {event_time} is outside the global time axis."
+            ) from exc
         value = _event_value(event)
         if value == info.miss_value:
             value = np.nan
@@ -388,7 +422,9 @@ def _event_value(event: fx.PIEvent) -> float:
     try:
         return float(event.value)
     except (TypeError, ValueError) as exc:
-        raise ValueError(f"Unsupported non-numeric PI event value: {event.value!r}.") from exc
+        raise ValueError(
+            f"Unsupported non-numeric PI event value: {event.value!r}."
+        ) from exc
 
 
 def _index_or_none(times: list[datetime], value: datetime | None) -> int | None:
@@ -413,7 +449,9 @@ def _key_from_variable_id(variable: str) -> PiSeriesKey:
     parts = variable.split(":")
     if len(parts) < 2:
         return PiSeriesKey(location_id=variable, parameter_id=variable)
-    return PiSeriesKey(location_id=parts[0], parameter_id=parts[1], qualifier_ids=tuple(parts[2:]))
+    return PiSeriesKey(
+        location_id=parts[0], parameter_id=parts[1], qualifier_ids=tuple(parts[2:])
+    )
 
 
 def _is_missing_value(value: float) -> bool:

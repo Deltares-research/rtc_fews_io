@@ -58,7 +58,9 @@ def test_pads_series_with_different_ranges():
     assert ts.times == [datetime(2024, 1, 1, h) for h in range(4)]
     assert ts.forecast_datetime == datetime(2024, 1, 1, 1)
     assert ts.forecast_index == 1
-    np.testing.assert_allclose(ts.get("A:x"), [1.0, 2.0, np.nan, np.nan], equal_nan=True)
+    np.testing.assert_allclose(
+        ts.get("A:x"), [1.0, 2.0, np.nan, np.nan], equal_nan=True
+    )
     np.testing.assert_allclose(ts.get("B:y"), [np.nan, 3.0, 4.0, 5.0], equal_nan=True)
 
 
@@ -98,7 +100,9 @@ def test_roundtrip_to_pi_timeseries_and_xml(tmp_path):
     assert reparsed.timezone is None
     assert reparsed.series_keys["Loc:Param:Q1"] == PiSeriesKey("Loc", "Param", ("Q1",))
     assert reparsed.get_unit("Loc:Param:Q1") == "m"
-    np.testing.assert_allclose(reparsed.get("Loc:Param:Q1"), [1.0, np.nan], equal_nan=True)
+    np.testing.assert_allclose(
+        reparsed.get("Loc:Param:Q1"), [1.0, np.nan], equal_nan=True
+    )
 
 
 def _header(location, parameter, start, end, **kwargs):
@@ -119,7 +123,8 @@ def _series(location, parameter, start, values, **kwargs):
     end = start + timedelta(hours=len(values) - 1)
     header = _header(location, parameter, start, end, **kwargs)
     events = [
-        {"date": start + timedelta(hours=i), "value": value} for i, value in enumerate(values)
+        {"date": start + timedelta(hours=i), "value": value}
+        for i, value in enumerate(values)
     ]
     return fx.create_pi_series(header, events)
 

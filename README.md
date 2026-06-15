@@ -32,6 +32,12 @@ RTC-Tools checkout.
 
 ## Development
 ```powershell
-python -m pip install -e .[test]
+python -m pip install -e .[test,dev]
+pre-commit install
 python -m pytest
+```
+
+We use `pre-commit` to run linting and code quality checks automatically on commit. Running `pre-commit install` installs the git hook. To run pre-commit checks manually on all files, use:
+```powershell
+pre-commit run --all-files
 ```

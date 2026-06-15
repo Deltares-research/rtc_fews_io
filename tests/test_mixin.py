@@ -40,7 +40,9 @@ class _Store:
     def times_sec(self):
         return self.datetime_to_sec(self._datetimes, self.reference_datetime)
 
-    def set_timeseries(self, variable, datetimes, values, ensemble_member=0, check_duplicates=False):
+    def set_timeseries(
+        self, variable, datetimes, values, ensemble_member=0, check_duplicates=False
+    ):
         del check_duplicates
         self._ensure_member(ensemble_member)
         self._datetimes = list(datetimes)
@@ -64,7 +66,9 @@ class _Store:
 
     @staticmethod
     def datetime_to_sec(datetimes, reference):
-        return np.asarray([(value - reference).total_seconds() for value in datetimes], dtype=float)
+        return np.asarray(
+            [(value - reference).total_seconds() for value in datetimes], dtype=float
+        )
 
 
 class _BaseProblem:
@@ -81,7 +85,9 @@ class _AbstractTimeseriesBase(_BaseProblem):
         del variable, ensemble_member
         raise NotImplementedError
 
-    def set_timeseries(self, variable, values, ensemble_member=0, output=True, check_consistency=True):
+    def set_timeseries(
+        self, variable, values, ensemble_member=0, output=True, check_consistency=True
+    ):
         del variable, values, ensemble_member, output, check_consistency
         raise NotImplementedError
 
@@ -99,10 +105,16 @@ class _OptimizationProblem(FewsIOMixin, _BaseProblem):
         return np.asarray([0.0, 3600.0, 7200.0])
 
     def extract_results(self, ensemble_member):
-        return {"x": np.asarray([ensemble_member + 10.0, ensemble_member + 11.0, ensemble_member + 12.0])}
+        return {
+            "x": np.asarray(
+                [ensemble_member + 10.0, ensemble_member + 11.0, ensemble_member + 12.0]
+            )
+        }
 
 
-class _OptimizationProblemWithAbstractTimeseriesBase(FewsIOMixin, _AbstractTimeseriesBase):
+class _OptimizationProblemWithAbstractTimeseriesBase(
+    FewsIOMixin, _AbstractTimeseriesBase
+):
     fews_io_mode = "optimization"
 
 
@@ -128,8 +140,12 @@ def test_fews_io_mixin_reads_optimization_inputs_and_writes_mapped_output(tmp_pa
     problem.read()
 
     assert problem.io.reference_datetime == datetime(2024, 1, 1)
-    np.testing.assert_allclose(problem.io.get_timeseries_sec("x", 0)[1], [1.0, 2.0, 3.0])
-    np.testing.assert_allclose(problem.io.get_timeseries_sec("x", 1)[1], [4.0, 5.0, 6.0])
+    np.testing.assert_allclose(
+        problem.io.get_timeseries_sec("x", 0)[1], [1.0, 2.0, 3.0]
+    )
+    np.testing.assert_allclose(
+        problem.io.get_timeseries_sec("x", 1)[1], [4.0, 5.0, 6.0]
+    )
     assert problem.io.parameters(0)["mapped_k"] == 3.5
     assert problem.io.parameters(1)["mapped_k"] == 3.5
     assert problem.solver_options()["max_iter"] == 12
@@ -145,7 +161,9 @@ def test_fews_io_mixin_reads_optimization_inputs_and_writes_mapped_output(tmp_pa
     np.testing.assert_allclose(exported.get("Loc:X", 1), [11.0, 12.0, 13.0])
 
 
-def test_fews_io_mixin_reads_selected_simulation_ensemble_and_writes_single_output(tmp_path):
+def test_fews_io_mixin_reads_selected_simulation_ensemble_and_writes_single_output(
+    tmp_path,
+):
     _write_case(tmp_path)
     problem = _SimulationProblem(input_folder=tmp_path, output_folder=tmp_path)
 
@@ -163,7 +181,9 @@ def test_fews_io_mixin_reads_selected_simulation_ensemble_and_writes_single_outp
 
 def test_fews_io_mixin_get_timeseries_ignores_abstract_super_placeholder(tmp_path):
     _write_case(tmp_path)
-    problem = _OptimizationProblemWithAbstractTimeseriesBase(input_folder=tmp_path, output_folder=tmp_path)
+    problem = _OptimizationProblemWithAbstractTimeseriesBase(
+        input_folder=tmp_path, output_folder=tmp_path
+    )
 
     problem.read()
 
@@ -177,28 +197,45 @@ def test_fews_io_mixin_get_timeseries_ignores_abstract_super_placeholder(tmp_pat
 
 def _write_case(folder: Path) -> None:
     (folder / "rtcDataConfig.xml").write_text(
-        '''<?xml version="1.0" encoding="UTF-8"?>
+        """<?xml version="1.0" encoding="UTF-8"?>
 <rtcDataConfig xmlns="http://www.wldelft.nl/fews">
-  <timeSeries id="x"><PITimeSeries><locationId>Loc</locationId><parameterId>X</parameterId></PITimeSeries></timeSeries>
-  <parameter id="mapped_k"><PIParameter><parameterId>K</parameterId></PIParameter></parameter>
+  <timeSeries id="x">
+    <PITimeSeries>
+      <locationId>Loc</locationId>
+      <parameterId>X</parameterId>
+    </PITimeSeries>
+  </timeSeries>
+  <parameter id="mapped_k">
+    <PIParameter>
+      <parameterId>K</parameterId>
+    </PIParameter>
+  </parameter>
 </rtcDataConfig>
-''',
+""",
         encoding="utf-8",
     )
     (folder / "rtcParameterConfig.xml").write_text(
-        '''<?xml version="1.0" encoding="UTF-8"?>
+        """<?xml version="1.0" encoding="UTF-8"?>
 <pi:parameters xmlns:pi="http://www.wldelft.nl/fews/PI">
-  <pi:group id="parameters"><pi:parameter id="K"><pi:dblValue>3.5</pi:dblValue></pi:parameter></pi:group>
+  <pi:group id="parameters">
+    <pi:parameter id="K">
+      <pi:dblValue>3.5</pi:dblValue>
+    </pi:parameter>
+  </pi:group>
 </pi:parameters>
-''',
+""",
         encoding="utf-8",
     )
     (folder / "rtcParameterConfig_Numerical.xml").write_text(
-        '''<?xml version="1.0" encoding="UTF-8"?>
+        """<?xml version="1.0" encoding="UTF-8"?>
 <pi:parameters xmlns:pi="http://www.wldelft.nl/fews/PI">
-  <pi:group id="numerics"><pi:parameter id="max_iter"><pi:intValue>12</pi:intValue></pi:parameter></pi:group>
+  <pi:group id="numerics">
+    <pi:parameter id="max_iter">
+      <pi:intValue>12</pi:intValue>
+    </pi:parameter>
+  </pi:group>
 </pi:parameters>
-''',
+""",
         encoding="utf-8",
     )
 
@@ -211,6 +248,18 @@ def _write_case(folder: Path) -> None:
         ensemble_size=2,
         version="1.2",
     )
-    timeseries.set("Loc:X", [1.0, 2.0, 3.0], key=PiSeriesKey("Loc", "X"), unit="m", ensemble_member=0)
-    timeseries.set("Loc:X", [4.0, 5.0, 6.0], key=PiSeriesKey("Loc", "X"), unit="m", ensemble_member=1)
+    timeseries.set(
+        "Loc:X",
+        [1.0, 2.0, 3.0],
+        key=PiSeriesKey("Loc", "X"),
+        unit="m",
+        ensemble_member=0,
+    )
+    timeseries.set(
+        "Loc:X",
+        [4.0, 5.0, 6.0],
+        key=PiSeriesKey("Loc", "X"),
+        unit="m",
+        ensemble_member=1,
+    )
     timeseries.write(folder / "timeseries_import.xml")
