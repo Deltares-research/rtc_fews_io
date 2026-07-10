@@ -379,26 +379,29 @@ class FewsIOMixin:
                 default=_NO_SUPER,
                 **kwargs,
             )
-        if called_super is not _NO_SUPER:
-            return
 
         if self.__timeseries_import is None:
             raise RuntimeError("set_timeseries() can only be used after read().")
 
-        times_sec = np.asarray(self.io.times_sec, dtype=float)
-        datetimes = self.__timeseries_import.times
-        padded = _values_on_import_axis(
-            values,
-            variable=variable,
-            imported_times=times_sec,
-            forecast_times=np.asarray(self.times(), dtype=float),
-            initial_time=float(getattr(self, "initial_time", 0.0)),
-            check_consistency=check_consistency,
-        )
+        if called_super is not _NO_SUPER:
+            _times, padded = self.io.get_timeseries_sec(variable, ensemble_member)
+        else:
+            times_sec = np.asarray(self.io.times_sec, dtype=float)
+            padded = _values_on_import_axis(
+                values,
+                variable=variable,
+                imported_times=times_sec,
+                forecast_times=np.asarray(self.times(), dtype=float),
+                initial_time=float(getattr(self, "initial_time", 0.0)),
+                check_consistency=check_consistency,
+            )
+            self.io.set_timeseries(
+                variable, self.__timeseries_import.times, padded, ensemble_member
+            )
+
         self.__timeseries_import.set(
             variable, padded, unit=unit, ensemble_member=ensemble_member
         )
-        self.io.set_timeseries(variable, datetimes, padded, ensemble_member)
 
         if output and self.__timeseries_export is not None:
             try:
@@ -531,6 +534,7 @@ class FewsIOMixin:
                         )
                         continue
                     self._add_output_series(output, alias, values, ensemble_member)
+        self._add_buffered_output_series(output)
         return output
 
     def _collect_simulation_output(self) -> FewsTimeSeries:
@@ -576,6 +580,13 @@ class FewsIOMixin:
             unit=self.__timeseries_import.get_unit(variable, 0),
             ensemble_member=ensemble_member,
         )
+
+    def _add_buffered_output_series(self, output: FewsTimeSeries) -> None:
+        if self.__timeseries_export is None:
+            return
+        for ensemble_member, series in self.__timeseries_export.values.items():
+            for variable, values in series.items():
+                self._add_output_series(output, variable, values, ensemble_member)
 
     def _is_simulation_mode(self) -> bool:
         if self.fews_io_mode == "simulation":
