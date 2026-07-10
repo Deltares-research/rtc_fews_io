@@ -16,6 +16,8 @@ from .timeseries import FewsTimeSeries, PiSeriesKey
 
 logger = logging.getLogger(__name__)
 
+_MISSING = object()
+
 
 @dataclass(frozen=True)
 class TimeseriesValues:
@@ -234,7 +236,8 @@ class FewsIOMixin:
             )
         except TypeError:
             bounds = _call_super_if_present(super(), "bounds", default={})
-        bounds = dict(bounds or {})
+        if bounds is None:
+            bounds = {}
         member = 0 if ensemble_member is None else ensemble_member
         start = bisect.bisect_left(
             self.io.times_sec, getattr(self, "initial_time", 0.0)
@@ -320,12 +323,13 @@ class FewsIOMixin:
     def set_timeseries(
         self,
         variable: str,
-        values: Any,
+        values: Any = _MISSING,
         *args: Any,
         unit: str | None = None,
         output: bool = True,
         check_consistency: bool = True,
         ensemble_member: int = 0,
+        timeseries: Any = _MISSING,
         **kwargs: Any,
     ) -> None:
         """Set a time series and optionally include it in the FEWS export file.
@@ -334,6 +338,14 @@ class FewsIOMixin:
         behavior. The local FEWS buffers are then updated so that units and export values stay in
         sync for simulation-like use cases.
         """
+        if values is _MISSING:
+            values = timeseries
+        elif timeseries is not _MISSING:
+            raise TypeError("set_timeseries() got both 'values' and 'timeseries'.")
+
+        if values is _MISSING:
+            raise TypeError("set_timeseries() missing required argument: 'timeseries'.")
+
         if unit is not None and self.__timeseries_import is not None:
             self.__timeseries_import.set_unit(
                 variable,
@@ -373,17 +385,15 @@ class FewsIOMixin:
         if self.__timeseries_import is None:
             raise RuntimeError("set_timeseries() can only be used after read().")
 
-        array = _values_from_argument(values)
-        if check_consistency and len(array) != len(self.times()):
-            raise ValueError(
-                (
-                    f"FewsIOMixin: values for {variable!r} have length {len(array)}, "
-                    f"expected {len(self.times())}."
-                )
-            )
+        times_sec = np.asarray(self.io.times_sec, dtype=float)
         datetimes = self.__timeseries_import.times
-        padded = _pad_forecast_values(
-            datetimes, self.__timeseries_import.forecast_datetime, array
+        padded = _values_on_import_axis(
+            values,
+            variable=variable,
+            imported_times=times_sec,
+            forecast_times=np.asarray(self.times(), dtype=float),
+            initial_time=float(getattr(self, "initial_time", 0.0)),
+            check_consistency=check_consistency,
         )
         self.__timeseries_import.set(
             variable, padded, unit=unit, ensemble_member=ensemble_member
@@ -439,6 +449,13 @@ class FewsIOMixin:
     @property
     def timeseries_import_times(self) -> np.ndarray:
         return self.io.times_sec
+
+    def get_forecast_index(self) -> int:
+        """Return the forecast index in the imported PI time axis."""
+        forecast_index = self.timeseries_import.forecast_index
+        if forecast_index is None:
+            raise RuntimeError("FewsIOMixin: forecastDate is not present in the time axis.")
+        return forecast_index
 
     @property
     def ensemble_size(self) -> int:
@@ -780,16 +797,45 @@ def _values_from_argument(values: Any) -> np.ndarray:
     return np.asarray(values, dtype=float)
 
 
-def _pad_forecast_values(
-    datetimes: list[datetime], forecast_datetime: datetime | None, values: np.ndarray
+def _values_on_import_axis(
+    values: Any,
+    *,
+    variable: str,
+    imported_times: np.ndarray,
+    forecast_times: np.ndarray,
+    initial_time: float,
+    check_consistency: bool,
 ) -> np.ndarray:
-    if len(values) == len(datetimes):
-        return values
-    if forecast_datetime is None:
-        raise ValueError("Cannot pad forecast values without a forecast datetime.")
-    start = datetimes.index(forecast_datetime)
-    padded = np.full(len(datetimes), np.nan, dtype=float)
-    padded[start:start + len(values)] = values
+    array = _values_from_argument(values)
+    padded = np.full(imported_times.shape, np.nan, dtype=float)
+
+    if hasattr(values, "times"):
+        series_times = np.asarray(values.times, dtype=float)
+        if len(series_times) != len(array):
+            raise ValueError(
+                f"FewsIOMixin: Trying to set timeseries {variable} with times and values "
+                f"that are of different length (lengths of {len(series_times)} and "
+                f"{len(array)}, respectively)."
+            )
+        if np.array_equal(imported_times, series_times):
+            return array
+        if check_consistency and not set(imported_times).issuperset(series_times):
+            raise ValueError(
+                f"FewsIOMixin: Trying to set timeseries {variable} with different times "
+                "than the imported timeseries. Please make sure the timeseries covers all "
+                "timesteps of the longest imported timeseries."
+            )
+        start = bisect.bisect_left(imported_times, series_times[0])
+        padded[start: start + len(array)] = array
+        return padded
+
+    if check_consistency and len(array) != len(forecast_times):
+        raise ValueError(
+            f"FewsIOMixin: Trying to set values for {variable} with a different length "
+            f"({len(array)}) than the forecast length ({len(forecast_times)})."
+        )
+    start = bisect.bisect_left(imported_times, initial_time)
+    padded[start: start + len(array)] = array
     return padded
 
 
@@ -813,10 +859,19 @@ def _interpolate_if_possible(
         problem.io.datetime_to_sec(output_times, problem.io.reference_datetime),
         dtype=float,
     )
-    try:
-        source_seconds = np.asarray(problem.times(variable), dtype=float)
-    except TypeError:
-        source_seconds = np.asarray(problem.times(), dtype=float)
+    imported_seconds = np.asarray(problem.io.times_sec, dtype=float)
+    if len(values) == len(imported_seconds):
+        source_seconds = imported_seconds
+    else:
+        try:
+            source_seconds = np.asarray(problem.times(variable), dtype=float)
+        except TypeError:
+            source_seconds = np.asarray(problem.times(), dtype=float)
+    if len(values) != len(source_seconds):
+        raise ValueError(
+            f"Output values for {variable!r} have length {len(values)}, but the inferred "
+            f"source time axis has length {len(source_seconds)}."
+        )
     return np.asarray(
         problem.interpolate(target_seconds, source_seconds, values), dtype=float
     )
