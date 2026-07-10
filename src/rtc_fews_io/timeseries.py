@@ -79,7 +79,7 @@ class FewsTimeSeries:
         start_datetime = min(info.start_datetime for info in series_infos)
         end_datetime = max(info.end_datetime for info in series_infos)
         times = _global_times(series_infos, start_datetime, end_datetime, dt)
-        forecast_datetime = _forecast_datetime(series_infos, start_datetime)
+        forecast_datetime = _forecast_datetime(series_infos)
         forecast_index = (
             _index_or_none(times, forecast_datetime) if forecast_datetime else None
         )
@@ -101,7 +101,6 @@ class FewsTimeSeries:
             normalized.values.setdefault(ensemble_member, {})
             normalized.units.setdefault(ensemble_member, {})
         time_to_index = {time: i for i, time in enumerate(times)}
-        virtual_series: list[tuple[str, np.ndarray, str]] = []
         for info in series_infos:
             target_members: Iterable[int]
             if contains_ensemble:
@@ -123,11 +122,6 @@ class FewsTimeSeries:
                     )
                 normalized.values[target_member][variable] = values.copy()
                 normalized.units[target_member][variable] = unit
-            if contains_ensemble and not info.has_ensemble:
-                virtual_series.append((variable, values.copy(), unit))
-        # Keep explicit references for mypy/readability; virtual expansion is
-        # already done above by target_members, but the list documents behavior.
-        del virtual_series
         return normalized
 
     @property
@@ -369,9 +363,7 @@ def _global_times(
     return [start_datetime + i * dt for i in range(n_steps + 1)]
 
 
-def _forecast_datetime(
-    series_infos: list[_SeriesInfo], start_datetime: datetime
-) -> datetime:
+def _forecast_datetime(series_infos: list[_SeriesInfo]) -> datetime:
     explicit = [
         info.forecast_datetime
         for info in series_infos
