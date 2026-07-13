@@ -202,7 +202,7 @@ class FewsTimeSeries:
                 unit = self.get_unit(variable, ensemble_member)
                 header_kwargs: dict[str, object] = {
                     "timeStep": _time_step_model(self.dt),
-                    "missVal": str(self.miss_value),
+                    "missVal": _format_number(self.miss_value),
                     "stationName": key.location_id,
                     "units": unit,
                 }
@@ -224,7 +224,7 @@ class FewsTimeSeries:
                     {
                         "date": time,
                         "value": (
-                            self.miss_value
+                            _format_number(self.miss_value)
                             if _is_missing_value(value)
                             else float(value)
                         ),
@@ -301,6 +301,10 @@ def _pi_datetime(value: datetime) -> fx.PIDateTime:
     return fx.PIDateTime(
         date=value.strftime("%Y-%m-%d"), time=value.strftime("%H:%M:%S")
     )
+
+
+def _format_number(value: float) -> str:
+    return f"{value:g}"
 
 
 def _event_datetime(event: fx.PIEvent) -> datetime:
