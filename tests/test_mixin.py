@@ -112,6 +112,50 @@ class _OptimizationProblem(FewsIOMixin, _BaseProblem):
         }
 
 
+class _DefaultTimesOptimizationProblem(FewsIOMixin, _BaseProblem):
+    fews_io_mode = "optimization"
+    pi_parameter_config_basenames = ["rtcParameterConfig"]
+
+    @property
+    def output_variables(self):
+        return [_Symbol("x")]
+
+    def extract_results(self, ensemble_member):
+        return {
+            "x": np.asarray(
+                [ensemble_member + 10.0 + i for i in range(len(self.times()))]
+            )
+        }
+
+
+class _ChangingOptimizationProblem(FewsIOMixin, _BaseProblem):
+    fews_io_mode = "optimization"
+    pi_parameter_config_basenames = ["rtcParameterConfig"]
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.result_offset = 10.0
+
+    @property
+    def output_variables(self):
+        return [_Symbol("x")]
+
+    def times(self, variable=None):
+        del variable
+        return np.asarray([0.0, 3600.0, 7200.0])
+
+    def extract_results(self, ensemble_member):
+        return {
+            "x": np.asarray(
+                [
+                    self.result_offset + ensemble_member,
+                    self.result_offset + ensemble_member + 1.0,
+                    self.result_offset + ensemble_member + 2.0,
+                ]
+            )
+        }
+
+
 class _OptimizationProblemWithAbstractTimeseriesBase(
     FewsIOMixin, _AbstractTimeseriesBase
 ):
@@ -139,6 +183,7 @@ def test_fews_io_mixin_reads_optimization_inputs_and_writes_mapped_output(tmp_pa
 
     problem.read()
 
+    assert problem.equidistant is True
     assert problem.io.reference_datetime == datetime(2024, 1, 1)
     np.testing.assert_allclose(
         problem.io.get_timeseries_sec("x", 0)[1], [1.0, 2.0, 3.0]
@@ -195,7 +240,43 @@ def test_fews_io_mixin_get_timeseries_ignores_abstract_super_placeholder(tmp_pat
     np.testing.assert_allclose(updated.values, [7.0, 8.0, 9.0])
 
 
-def _write_case(folder: Path) -> None:
+def test_fews_io_mixin_reports_non_equidistant_optimization_input(tmp_path):
+    _write_case(tmp_path, dt=None)
+    problem = _DefaultTimesOptimizationProblem(
+        input_folder=tmp_path, output_folder=tmp_path
+    )
+
+    problem.read()
+
+    assert problem.equidistant is False
+    np.testing.assert_allclose(problem.times(), [0.0, 3600.0, 10800.0])
+
+    problem.write()
+
+    exported = FewsTimeSeries.read(tmp_path / "timeseries_export.xml")
+    assert exported.dt is None
+    assert exported.times == [
+        datetime(2024, 1, 1),
+        datetime(2024, 1, 1, 1),
+        datetime(2024, 1, 1, 3),
+    ]
+
+
+def test_fews_io_mixin_repeated_write_uses_current_results(tmp_path):
+    _write_case(tmp_path)
+    problem = _ChangingOptimizationProblem(input_folder=tmp_path, output_folder=tmp_path)
+
+    problem.read()
+    problem.write()
+    problem.result_offset = 100.0
+    problem.write()
+
+    exported = FewsTimeSeries.read(tmp_path / "timeseries_export.xml")
+    np.testing.assert_allclose(exported.get("Loc:X", 0), [100.0, 101.0, 102.0])
+    np.testing.assert_allclose(exported.get("Loc:X", 1), [101.0, 102.0, 103.0])
+
+
+def _write_case(folder: Path, *, dt: timedelta | None = timedelta(hours=1)) -> None:
     (folder / "rtcDataConfig.xml").write_text(
         """<?xml version="1.0" encoding="UTF-8"?>
 <rtcDataConfig xmlns="http://www.wldelft.nl/fews">
@@ -239,11 +320,16 @@ def _write_case(folder: Path) -> None:
         encoding="utf-8",
     )
 
+    times = [
+        datetime(2024, 1, 1),
+        datetime(2024, 1, 1, 1),
+        datetime(2024, 1, 1, 2) if dt is not None else datetime(2024, 1, 1, 3),
+    ]
     timeseries = FewsTimeSeries(
-        times=[datetime(2024, 1, 1) + timedelta(hours=i) for i in range(3)],
+        times=times,
         timezone=0.0,
         forecast_datetime=datetime(2024, 1, 1),
-        dt=timedelta(hours=1),
+        dt=dt,
         contains_ensemble=True,
         ensemble_size=2,
         version="1.2",

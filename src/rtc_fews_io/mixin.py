@@ -66,6 +66,7 @@ class FewsIOMixin:
         self.__parameter_config_numerical: ParameterConfig | None = None
         self.__timeseries_import: FewsTimeSeries | None = None
         self.__timeseries_export: FewsTimeSeries | None = None
+        self.__timeseries_output_buffer: FewsTimeSeries | None = None
 
     def pre(self) -> None:
         _call_super_if_present(super(), "pre")
@@ -108,6 +109,9 @@ class FewsIOMixin:
             raw_timeseries, self.__data_config
         )
         self.__timeseries_export = _new_output_timeseries(self.__timeseries_import)
+        self.__timeseries_output_buffer = _new_output_timeseries(
+            self.__timeseries_import
+        )
 
         if self.pi_validate_timeseries:
             _validate_times(
@@ -403,7 +407,7 @@ class FewsIOMixin:
             variable, padded, unit=unit, ensemble_member=ensemble_member
         )
 
-        if output and self.__timeseries_export is not None:
+        if output and self.__timeseries_output_buffer is not None:
             try:
                 key = _pi_key_for_variable(self.__data_config, variable)
             except KeyError:
@@ -412,7 +416,7 @@ class FewsIOMixin:
                     variable,
                 )
             else:
-                self.__timeseries_export.set(
+                self.__timeseries_output_buffer.set(
                     variable,
                     padded,
                     key=key,
@@ -453,6 +457,14 @@ class FewsIOMixin:
     def timeseries_import_times(self) -> np.ndarray:
         return self.io.times_sec
 
+    @property
+    def equidistant(self) -> bool:
+        """Return whether the imported time axis has a constant step size."""
+        datetimes = getattr(self.io, "datetimes", ())
+        if len(datetimes) < 2:
+            return False
+        return len(set(np.diff(datetimes))) == 1
+
     def get_forecast_index(self) -> int:
         """Return the forecast index in the imported PI time axis."""
         forecast_index = self.timeseries_import.forecast_index
@@ -470,6 +482,8 @@ class FewsIOMixin:
         """Set a unit on import and export buffers."""
         self.timeseries_import.set_unit(variable, unit, 0)
         self.timeseries_export.set_unit(variable, unit, 0)
+        if self.__timeseries_output_buffer is not None:
+            self.__timeseries_output_buffer.set_unit(variable, unit, 0)
 
     def _read_optimization_inputs(self) -> None:
         assert self.__timeseries_import is not None
@@ -555,6 +569,7 @@ class FewsIOMixin:
         for variable in getattr(self, "_io_output_variables", ()):
             values = np.asarray(getattr(self, "_io_output", {})[variable], dtype=float)
             self._add_output_series(output, variable, values, 0)
+        self._add_buffered_output_series(output)
         return output
 
     def _add_output_series(
@@ -582,9 +597,9 @@ class FewsIOMixin:
         )
 
     def _add_buffered_output_series(self, output: FewsTimeSeries) -> None:
-        if self.__timeseries_export is None:
+        if self.__timeseries_output_buffer is None:
             return
-        for ensemble_member, series in self.__timeseries_export.values.items():
+        for ensemble_member, series in self.__timeseries_output_buffer.values.items():
             for variable, values in series.items():
                 self._add_output_series(output, variable, values, ensemble_member)
 
