@@ -240,8 +240,7 @@ class FewsIOMixin:
             )
         except TypeError:
             bounds = _call_super_if_present(super(), "bounds", default={})
-        if bounds is None:
-            bounds = {}
+        bounds = dict(bounds or {})
         member = 0 if ensemble_member is None else ensemble_member
         start = bisect.bisect_left(
             self.io.times_sec, getattr(self, "initial_time", 0.0)
