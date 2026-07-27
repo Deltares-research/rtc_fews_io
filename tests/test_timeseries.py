@@ -96,6 +96,11 @@ def test_roundtrip_to_pi_timeseries_and_xml(tmp_path):
     )
     output_path = tmp_path / "timeseries_export.xml"
     ts.write(output_path)
+    xml = output_path.read_text(encoding="utf-8")
+    assert "<missVal>-999</missVal>" in xml
+    assert "<missVal>-999.0</missVal>" not in xml
+    assert 'value="-999"' in xml
+    assert 'value="-999.0"' not in xml
     reparsed = FewsTimeSeries.read(output_path)
     assert reparsed.timezone is None
     assert reparsed.series_keys["Loc:Param:Q1"] == PiSeriesKey("Loc", "Param", ("Q1",))
