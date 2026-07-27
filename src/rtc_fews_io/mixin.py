@@ -850,8 +850,15 @@ def _values_on_import_axis(
                 "than the imported timeseries. Please make sure the timeseries covers all "
                 "timesteps of the longest imported timeseries."
             )
-        start = bisect.bisect_left(imported_times, series_times[0])
-        padded[start: start + len(array)] = array
+        indices = np.searchsorted(imported_times, series_times)
+        if np.any(indices >= len(imported_times)) or not np.array_equal(
+            imported_times[indices], series_times
+        ):
+            raise ValueError(
+                f"FewsIOMixin: Trying to set timeseries {variable} with times that do not align "
+                "with the imported time axis."
+            )
+        padded[indices] = array
         return padded
 
     if check_consistency and len(array) != len(forecast_times):
