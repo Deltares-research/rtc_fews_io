@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 
 from rtc_fews_io import FewsIOMixin, FewsTimeSeries, PiSeriesKey
+from rtc_fews_io.mixin import TimeseriesValues, _values_on_import_axis
 
 
 class _AliasRelation:
@@ -92,6 +93,17 @@ class _AbstractTimeseriesBase(_BaseProblem):
         raise NotImplementedError
 
 
+class _CopyPreservingMapping(dict):
+    def copy(self):
+        return type(self)(self)
+
+
+class _BoundsBase(_BaseProblem):
+    def bounds(self, ensemble_member=None):
+        del ensemble_member
+        return _CopyPreservingMapping({"x": (0.0, 1.0)})
+
+
 class _OptimizationProblem(FewsIOMixin, _BaseProblem):
     fews_io_mode = "optimization"
     pi_parameter_config_basenames = ["rtcParameterConfig"]
@@ -160,6 +172,11 @@ class _OptimizationProblemWithAbstractTimeseriesBase(
     FewsIOMixin, _AbstractTimeseriesBase
 ):
     fews_io_mode = "optimization"
+
+
+class _OptimizationProblemWithCustomBounds(FewsIOMixin, _BoundsBase):
+    fews_io_mode = "optimization"
+    dae_variables = {"free_variables": ()}
 
 
 class _SimulationProblem(FewsIOMixin, _BaseProblem):
@@ -274,6 +291,53 @@ def test_fews_io_mixin_repeated_write_uses_current_results(tmp_path):
     exported = FewsTimeSeries.read(tmp_path / "timeseries_export.xml")
     np.testing.assert_allclose(exported.get("Loc:X", 0), [100.0, 101.0, 102.0])
     np.testing.assert_allclose(exported.get("Loc:X", 1), [101.0, 102.0, 103.0])
+
+
+def test_fews_io_mixin_bounds_preserves_super_mapping_type(tmp_path):
+    _write_case(tmp_path)
+    problem = _OptimizationProblemWithCustomBounds(
+        input_folder=tmp_path, output_folder=tmp_path
+    )
+    problem.read()
+
+    bounds = problem.bounds()
+
+    assert isinstance(bounds, _CopyPreservingMapping)
+    assert bounds == {"x": (0.0, 1.0)}
+
+
+def test_values_on_import_axis_aligns_gapped_subset():
+    values = TimeseriesValues(
+        times=np.asarray([0.0, 7200.0]), values=np.asarray([1.0, 3.0])
+    )
+
+    padded = _values_on_import_axis(
+        values,
+        variable="x",
+        imported_times=np.asarray([0.0, 3600.0, 7200.0]),
+        forecast_times=np.asarray([0.0, 3600.0, 7200.0]),
+        initial_time=0.0,
+        check_consistency=True,
+    )
+
+    np.testing.assert_allclose(padded, [1.0, np.nan, 3.0], equal_nan=True)
+
+
+def test_values_on_import_axis_allows_unaligned_times_when_check_is_disabled():
+    values = TimeseriesValues(
+        times=np.asarray([0.0, 5400.0]), values=np.asarray([1.0, 2.0])
+    )
+
+    padded = _values_on_import_axis(
+        values,
+        variable="x",
+        imported_times=np.asarray([0.0, 3600.0, 7200.0]),
+        forecast_times=np.asarray([0.0, 3600.0, 7200.0]),
+        initial_time=0.0,
+        check_consistency=False,
+    )
+
+    np.testing.assert_allclose(padded, [1.0, 2.0, np.nan], equal_nan=True)
 
 
 def _write_case(folder: Path, *, dt: timedelta | None = timedelta(hours=1)) -> None:

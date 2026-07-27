@@ -240,7 +240,7 @@ class FewsIOMixin:
             )
         except TypeError:
             bounds = _call_super_if_present(super(), "bounds", default={})
-        bounds = dict(bounds or {})
+        bounds = bounds.copy() if bounds is not None else {}
         member = 0 if ensemble_member is None else ensemble_member
         start = bisect.bisect_left(
             self.io.times_sec, getattr(self, "initial_time", 0.0)
@@ -851,14 +851,19 @@ def _values_on_import_axis(
                 "timesteps of the longest imported timeseries."
             )
         indices = np.searchsorted(imported_times, series_times)
-        if np.any(indices >= len(imported_times)) or not np.array_equal(
+        aligned = np.all(indices < len(imported_times)) and np.array_equal(
             imported_times[indices], series_times
-        ):
+        )
+        if check_consistency and not aligned:
             raise ValueError(
                 f"FewsIOMixin: Trying to set timeseries {variable} with times that do not align "
                 "with the imported time axis."
             )
-        padded[indices] = array
+        if aligned:
+            padded[indices] = array
+        else:
+            start = bisect.bisect_left(imported_times, series_times[0])
+            padded[start: start + len(array)] = array
         return padded
 
     if check_consistency and len(array) != len(forecast_times):
