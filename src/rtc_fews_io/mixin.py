@@ -162,18 +162,29 @@ class FewsIOMixin:
             parameters = {}
         else:
             parameters = dict(parameters)
-        parameters.update(dict(self.io.parameters(ensemble_member)))
+        try:
+            io_params = self.io.parameters(ensemble_member)
+        except TypeError:
+            io_params = self.io.parameters()
+        parameters.update(dict(io_params))
         return parameters
 
-    def constant_inputs(self, ensemble_member: int) -> dict[str, Any]:
+    def constant_inputs(self, ensemble_member: int = 0) -> dict[str, Any]:
         """Return constant-input time series augmented with imported FEWS values."""
-        constant_inputs = (
-            _call_super_if_present(
+        try:
+            constant_inputs = _call_super_if_present(
                 super(), "constant_inputs", ensemble_member, default={}
             )
-            or {}
-        )
-        constant_inputs = dict(constant_inputs)
+        except TypeError:
+            constant_inputs = _call_super_if_present(
+                super(), "constant_inputs", default={}
+            )
+        if constant_inputs is None:
+            constant_inputs = {}
+        else:
+            constant_inputs = dict(constant_inputs)
+        if self._is_simulation_mode():
+            return constant_inputs
         start = bisect.bisect_left(
             self.io.times_sec, getattr(self, "initial_time", 0.0)
         )
@@ -191,13 +202,20 @@ class FewsIOMixin:
             constant_inputs[variable] = _timeseries_container(times[start:], selected)
         return constant_inputs
 
-    def history(self, ensemble_member: int) -> dict[str, Any]:
+    def history(self, ensemble_member: int = 0) -> dict[str, Any]:
         """Return history time series up to and including the initial time."""
-        history = (
-            _call_super_if_present(super(), "history", ensemble_member, default={})
-            or {}
-        )
-        history = dict(history)
+        try:
+            history = _call_super_if_present(
+                super(), "history", ensemble_member, default={}
+            )
+        except TypeError:
+            history = _call_super_if_present(super(), "history", default={})
+        if history is None:
+            history = {}
+        else:
+            history = dict(history)
+        if self._is_simulation_mode():
+            return history
         end = (
             bisect.bisect_left(self.io.times_sec, getattr(self, "initial_time", 0.0))
             + 1
@@ -216,12 +234,20 @@ class FewsIOMixin:
             history[variable] = _timeseries_container(times[:end], values[:end])
         return history
 
-    def seed(self, ensemble_member: int) -> dict[str, Any]:
+    def seed(self, ensemble_member: int = 0) -> dict[str, Any]:
         """Return seed values augmented with imported free-variable time series."""
-        seed = (
-            _call_super_if_present(super(), "seed", ensemble_member, default={}) or {}
-        )
-        seed = dict(seed)
+        try:
+            seed = _call_super_if_present(
+                super(), "seed", ensemble_member, default={}
+            )
+        except TypeError:
+            seed = _call_super_if_present(super(), "seed", default={})
+        if seed is None:
+            seed = {}
+        else:
+            seed = dict(seed)
+        if self._is_simulation_mode():
+            return seed
         for variable in _dae_variable_names(self, "free_variables"):
             try:
                 times, values = self.io.get_timeseries_sec(variable, ensemble_member)
@@ -241,6 +267,8 @@ class FewsIOMixin:
         except TypeError:
             bounds = _call_super_if_present(super(), "bounds", default={})
         bounds = bounds.copy() if bounds is not None else {}
+        if self._is_simulation_mode():
+            return bounds
         member = 0 if ensemble_member is None else ensemble_member
         start = bisect.bisect_left(
             self.io.times_sec, getattr(self, "initial_time", 0.0)
@@ -425,16 +453,25 @@ class FewsIOMixin:
                 )
 
     def get_timeseries(self, variable: str, ensemble_member: int = 0) -> Any:
-        """Return a RTC-Tools Timeseries object when available, otherwise a small fallback."""
+        """Return time series values in simulation mode, or Timeseries in optimization mode."""
         try:
             super_timeseries = _call_super_if_present(
                 super(), "get_timeseries", variable, ensemble_member, default=_NO_SUPER
             )
         except TypeError:
-            super_timeseries = _NO_SUPER
+            try:
+                super_timeseries = _call_super_if_present(
+                    super(), "get_timeseries", variable, default=_NO_SUPER
+                )
+            except TypeError:
+                super_timeseries = _NO_SUPER
         if super_timeseries is not _NO_SUPER:
             return super_timeseries
+
         times, values = self.io.get_timeseries_sec(variable, ensemble_member)
+        if self._is_simulation_mode():
+            return values
+
         cls = _rtctools_timeseries_class()
         return (
             cls(times, values) if cls is not None else TimeseriesValues(times, values)
@@ -755,11 +792,18 @@ def _stored_values(
 ) -> np.ndarray | None:
     try:
         ts = problem.get_timeseries(variable, ensemble_member)
+    except TypeError:
+        try:
+            ts = problem.get_timeseries(variable)
+        except KeyError:
+            return None
     except KeyError:
         return None
     if hasattr(ts, "values"):
         return np.asarray(ts.values, dtype=float)
-    return np.asarray(ts[1], dtype=float)
+    if isinstance(ts, tuple) and len(ts) == 2:
+        return np.asarray(ts[1], dtype=float)
+    return np.asarray(ts, dtype=float)
 
 
 def _dae_variable_names(problem: Any, *groups: str) -> list[str]:

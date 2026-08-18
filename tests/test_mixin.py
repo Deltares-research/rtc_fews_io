@@ -234,6 +234,19 @@ def test_fews_io_mixin_reads_selected_simulation_ensemble_and_writes_single_outp
     np.testing.assert_allclose(problem.io.get_timeseries_sec("x")[1], [4.0, 5.0, 6.0])
     assert problem.io.parameters()["mapped_k"] == 3.5
 
+    # Simulation mode should return numpy array directly (subscriptable)
+    timeseries_values = problem.get_timeseries("x")
+    assert isinstance(timeseries_values, np.ndarray)
+    np.testing.assert_allclose(timeseries_values, [4.0, 5.0, 6.0])
+    assert timeseries_values[0] == 4.0
+
+    # Ensure methods callable without arguments in simulation mode
+    assert problem.seed() == {}
+    assert problem.constant_inputs() == {}
+    assert problem.history() == {}
+    assert problem.bounds() == {}
+    assert problem.parameters()["mapped_k"] == 3.5
+
     problem.write()
 
     exported = FewsTimeSeries.read(tmp_path / "timeseries_export.xml")
