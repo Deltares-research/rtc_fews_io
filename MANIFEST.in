@@ -1,3 +1,4 @@
 include README.md
-include LICENSE
+include COPYING
+include COPYING.LESSER
 recursive-include src *.py py.typed

@@ -7,9 +7,12 @@ version = "0.1.1"
 description = "FEWS I/O helpers for RTC-Tools."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = { file = "COPYING.LESSER" }
 authors = [
-    { name = "Deltares" },
+    { name = "Farid Alavi" },
+]
+classifiers = [
+    "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
 ]
 dependencies = [
     "fewsxml>=0.2.2",
