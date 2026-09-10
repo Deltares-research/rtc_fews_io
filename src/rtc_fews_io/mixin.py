@@ -603,7 +603,7 @@ class FewsIOMixin:
             contains_ensemble=self.__timeseries_import.contains_ensemble,
         )
         for variable in getattr(self, "_io_output_variables", ()):
-            values = np.asarray(getattr(self, "_io_output", {})[variable], dtype=float)
+            values = np.asarray(getattr(self, "_io_output", {})[variable])
             self._add_output_series(output, variable, values, 0)
         self._add_buffered_output_series(output)
         return output
@@ -621,7 +621,7 @@ class FewsIOMixin:
             )
             return
 
-        array = np.asarray(values, dtype=float)
+        array = np.asarray(values)
         if len(array) != len(output.times):
             array = _interpolate_if_possible(self, variable, output.times, array)
         output.set(
@@ -782,7 +782,7 @@ def _aliases(problem: Any, variable: str) -> Iterable[str]:
 
 def _result_values(results: Mapping[str, Any], variable: str) -> np.ndarray | None:
     try:
-        return np.asarray(results[variable], dtype=float)
+        return np.asarray(results[variable])
     except KeyError:
         return None
 
@@ -800,10 +800,10 @@ def _stored_values(
     except KeyError:
         return None
     if hasattr(ts, "values"):
-        return np.asarray(ts.values, dtype=float)
+        return np.asarray(ts.values)
     if isinstance(ts, tuple) and len(ts) == 2:
-        return np.asarray(ts[1], dtype=float)
-    return np.asarray(ts, dtype=float)
+        return np.asarray(ts[1])
+    return np.asarray(ts)
 
 
 def _dae_variable_names(problem: Any, *groups: str) -> list[str]:

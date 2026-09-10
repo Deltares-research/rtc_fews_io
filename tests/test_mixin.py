@@ -140,6 +140,11 @@ class _DefaultTimesOptimizationProblem(FewsIOMixin, _BaseProblem):
         }
 
 
+class _IntegerOutputOptimizationProblem(_OptimizationProblem):
+    def extract_results(self, ensemble_member):
+        return {"x": np.asarray([10, 11, 12], dtype=int)}
+
+
 class _ChangingOptimizationProblem(FewsIOMixin, _BaseProblem):
     fews_io_mode = "optimization"
     pi_parameter_config_basenames = ["rtcParameterConfig"]
@@ -214,6 +219,8 @@ def test_fews_io_mixin_reads_optimization_inputs_and_writes_mapped_output(tmp_pa
 
     problem.write()
 
+    xml = (tmp_path / "timeseries_export.xml").read_text(encoding="utf-8")
+    assert 'value="10.0"' in xml
     exported = FewsTimeSeries.read(tmp_path / "timeseries_export.xml")
     assert exported.contains_ensemble is True
     assert exported.ensemble_size == 2
@@ -221,6 +228,20 @@ def test_fews_io_mixin_reads_optimization_inputs_and_writes_mapped_output(tmp_pa
     assert exported.get_unit("Loc:X", 0) == "m"
     np.testing.assert_allclose(exported.get("Loc:X", 0), [10.0, 11.0, 12.0])
     np.testing.assert_allclose(exported.get("Loc:X", 1), [11.0, 12.0, 13.0])
+
+
+def test_fews_io_mixin_preserves_integer_output_values(tmp_path):
+    _write_case(tmp_path)
+    problem = _IntegerOutputOptimizationProblem(
+        input_folder=tmp_path, output_folder=tmp_path
+    )
+
+    problem.read()
+    problem.write()
+
+    xml = (tmp_path / "timeseries_export.xml").read_text(encoding="utf-8")
+    assert 'value="10"' in xml
+    assert 'value="10.0"' not in xml
 
 
 def test_fews_io_mixin_reads_selected_simulation_ensemble_and_writes_single_output(

@@ -167,7 +167,7 @@ class FewsTimeSeries:
         `values` must have the same length as `times`.
         """
         self._require_ensemble_member(ensemble_member, allow_create=True)
-        array = np.asarray(list(values), dtype=float)
+        array = np.asarray(list(values))
         if len(array) != len(self.times):
             raise ValueError(
                 f"Length of values ({len(array)}) must match length of times ({len(self.times)})."
@@ -223,11 +223,7 @@ class FewsTimeSeries:
                 events = [
                     {
                         "date": time,
-                        "value": (
-                            _format_number(self.miss_value)
-                            if _is_missing_value(value)
-                            else float(value)
-                        ),
+                        "value": _event_value_for_write(value, self.miss_value),
                     }
                     for time, value in zip(self.times, values, strict=True)
                 ]
@@ -305,6 +301,12 @@ def _pi_datetime(value: datetime) -> fx.PIDateTime:
 
 def _format_number(value: float) -> str:
     return f"{value:g}"
+
+
+def _event_value_for_write(value: object, miss_value: float) -> object:
+    if _is_missing_value(value):
+        return _format_number(miss_value)
+    return value.item() if isinstance(value, np.generic) else value
 
 
 def _event_datetime(event: fx.PIEvent) -> datetime:

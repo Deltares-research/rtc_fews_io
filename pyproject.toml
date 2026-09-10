@@ -12,7 +12,7 @@ authors = [
     { name = "Deltares" },
 ]
 dependencies = [
-    "fewsxml>=0.2.1",
+    "fewsxml>=0.2.2",
     "defusedxml>=0.7.0",
     "numpy>=1.23",
 ]
