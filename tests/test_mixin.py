@@ -327,6 +327,19 @@ def test_fews_io_mixin_repeated_write_uses_current_results(tmp_path):
     np.testing.assert_allclose(exported.get("Loc:X", 1), [101.0, 102.0, 103.0])
 
 
+def test_fews_io_mixin_optimization_results_override_buffered_series(tmp_path):
+    _write_case(tmp_path)
+    problem = _OptimizationProblem(input_folder=tmp_path, output_folder=tmp_path)
+
+    problem.read()
+    problem.set_timeseries("x", [0.0, np.nan, np.nan])
+    problem.write()
+
+    exported = FewsTimeSeries.read(tmp_path / "timeseries_export.xml")
+    np.testing.assert_allclose(exported.get("Loc:X", 0), [10.0, 11.0, 12.0])
+    np.testing.assert_allclose(exported.get("Loc:X", 1), [11.0, 12.0, 13.0])
+
+
 def test_fews_io_mixin_bounds_preserves_super_mapping_type(tmp_path):
     _write_case(tmp_path)
     problem = _OptimizationProblemWithCustomBounds(

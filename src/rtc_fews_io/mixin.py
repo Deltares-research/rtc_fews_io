@@ -569,6 +569,7 @@ class FewsIOMixin:
             ensemble_size=self.ensemble_size,
             contains_ensemble=self.ensemble_size > 1,
         )
+        self._add_buffered_output_series(output)
         for ensemble_member in range(self.ensemble_size):
             results = self.extract_results(ensemble_member)
             for variable in _output_variable_names(
@@ -584,7 +585,6 @@ class FewsIOMixin:
                         )
                         continue
                     self._add_output_series(output, alias, values, ensemble_member)
-        self._add_buffered_output_series(output)
         return output
 
     def _collect_simulation_output(self) -> FewsTimeSeries:
