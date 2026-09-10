@@ -569,6 +569,7 @@ class FewsIOMixin:
             ensemble_size=self.ensemble_size,
             contains_ensemble=self.ensemble_size > 1,
         )
+        self._add_staged_output_series(output)
         self._add_buffered_output_series(output)
         for ensemble_member in range(self.ensemble_size):
             results = self.extract_results(ensemble_member)
@@ -631,6 +632,13 @@ class FewsIOMixin:
             unit=self.__timeseries_import.get_unit(variable, 0),
             ensemble_member=ensemble_member,
         )
+
+    def _add_staged_output_series(self, output: FewsTimeSeries) -> None:
+        if self.__timeseries_export is None:
+            return
+        for ensemble_member, series in self.__timeseries_export.values.items():
+            for variable, values in series.items():
+                self._add_output_series(output, variable, values, ensemble_member)
 
     def _add_buffered_output_series(self, output: FewsTimeSeries) -> None:
         if self.__timeseries_output_buffer is None:

@@ -340,6 +340,41 @@ def test_fews_io_mixin_optimization_results_override_buffered_series(tmp_path):
     np.testing.assert_allclose(exported.get("Loc:X", 1), [11.0, 12.0, 13.0])
 
 
+def test_fews_io_mixin_writes_series_staged_in_timeseries_export(tmp_path):
+    _write_case(tmp_path)
+    data_config = """<?xml version="1.0" encoding="UTF-8"?>
+<rtcDataConfig xmlns="http://www.wldelft.nl/fews">
+    <timeSeries id="x">
+        <PITimeSeries>
+            <locationId>Loc</locationId>
+            <parameterId>X</parameterId>
+        </PITimeSeries>
+    </timeSeries>
+    <timeSeries id="x_max">
+        <PITimeSeries>
+            <locationId>Loc</locationId>
+            <parameterId>X</parameterId>
+            <qualifierId>Maximum</qualifierId>
+        </PITimeSeries>
+    </timeSeries>
+</rtcDataConfig>
+"""
+    (tmp_path / "rtcDataConfig.xml").write_text(data_config, encoding="utf-8")
+    problem = _OptimizationProblem(input_folder=tmp_path, output_folder=tmp_path)
+
+    problem.read()
+    problem.timeseries_export.set("x_max", [20.0, 21.0, 22.0])
+    problem.write()
+
+    exported = FewsTimeSeries.read(tmp_path / "timeseries_export.xml")
+    assert exported.series_keys["Loc:X:Maximum"] == PiSeriesKey(
+        "Loc", "X", ("Maximum",)
+    )
+    np.testing.assert_allclose(
+        exported.get("Loc:X:Maximum"), [20.0, 21.0, 22.0]
+    )
+
+
 def test_fews_io_mixin_bounds_preserves_super_mapping_type(tmp_path):
     _write_case(tmp_path)
     problem = _OptimizationProblemWithCustomBounds(
