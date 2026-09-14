@@ -205,6 +205,8 @@ def test_fews_io_mixin_reads_optimization_inputs_and_writes_mapped_output(tmp_pa
 
     problem.read()
 
+    assert problem.timeseries_import.path == str(tmp_path / "timeseries_import.xml")
+    assert problem.timeseries_export.path == str(tmp_path / "timeseries_export.xml")
     assert problem.equidistant is True
     assert problem.io.reference_datetime == datetime(2024, 1, 1)
     np.testing.assert_allclose(
@@ -219,6 +221,7 @@ def test_fews_io_mixin_reads_optimization_inputs_and_writes_mapped_output(tmp_pa
 
     problem.write()
 
+    assert problem.timeseries_export.path == str(tmp_path / "timeseries_export.xml")
     xml = (tmp_path / "timeseries_export.xml").read_text(encoding="utf-8")
     assert 'value="10.0"' in xml
     exported = FewsTimeSeries.read(tmp_path / "timeseries_export.xml")

@@ -58,11 +58,14 @@ class FewsTimeSeries:
     ensemble_size: int = 1
     version: str | None = None
     miss_value: float = -999.0
+    path: str | None = None
 
     @classmethod
     def read(cls, path: str | Path) -> FewsTimeSeries:
         """Read a PI TimeSeries XML file and normalize it."""
-        return cls.from_pi_timeseries(fx.read(str(path)))
+        timeseries = cls.from_pi_timeseries(fx.read(str(path)))
+        timeseries.path = str(path)
+        return timeseries
 
     @classmethod
     def from_file(cls, path: str | Path) -> FewsTimeSeries:

@@ -108,9 +108,14 @@ class FewsIOMixin:
         self.__timeseries_import = _map_import_timeseries(
             raw_timeseries, self.__data_config
         )
-        self.__timeseries_export = _new_output_timeseries(self.__timeseries_import)
+        export_path = (
+            Path(self._output_folder) / f"{self.timeseries_export_basename}.xml"
+        )
+        self.__timeseries_export = _new_output_timeseries(
+            self.__timeseries_import, path=export_path
+        )
         self.__timeseries_output_buffer = _new_output_timeseries(
-            self.__timeseries_import
+            self.__timeseries_import, path=export_path
         )
 
         if self.pi_validate_timeseries:
@@ -561,6 +566,7 @@ class FewsIOMixin:
         seconds = np.asarray(self.times(), dtype=float)
         output = _new_output_timeseries(
             self.__timeseries_import,
+            path=self.timeseries_export.path,
             times=[
                 self.__timeseries_import.forecast_datetime + timedelta(seconds=float(s))
                 for s in seconds
@@ -595,6 +601,7 @@ class FewsIOMixin:
         )
         output = _new_output_timeseries(
             self.__timeseries_import,
+            path=self.timeseries_export.path,
             times=[
                 self.io.reference_datetime + timedelta(seconds=float(s))
                 for s in seconds
@@ -692,6 +699,7 @@ def _map_import_timeseries(
 ) -> FewsTimeSeries:
     mapped = FewsTimeSeries(
         times=list(timeseries.times),
+        path=timeseries.path,
         timezone=timeseries.timezone,
         forecast_datetime=timeseries.forecast_datetime,
         dt=timeseries.dt,
@@ -718,6 +726,7 @@ def _map_import_timeseries(
 def _new_output_timeseries(
     source: FewsTimeSeries,
     *,
+    path: str | Path | None = None,
     times: list[datetime] | None = None,
     dt: timedelta | None | object = _NO_SUPER,
     ensemble_size: int | None = None,
@@ -725,6 +734,7 @@ def _new_output_timeseries(
 ) -> FewsTimeSeries:
     return FewsTimeSeries(
         times=list(times if times is not None else source.times),
+        path=None if path is None else str(path),
         timezone=source.timezone,
         forecast_datetime=source.forecast_datetime,
         dt=source.dt if dt is _NO_SUPER else dt,
