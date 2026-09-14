@@ -294,6 +294,20 @@ def test_fews_io_mixin_get_timeseries_ignores_abstract_super_placeholder(tmp_pat
     np.testing.assert_allclose(updated.values, [7.0, 8.0, 9.0])
 
 
+def test_fews_io_mixin_accepts_positional_ensemble_member(tmp_path):
+    _write_case(tmp_path)
+    problem = _OptimizationProblemWithAbstractTimeseriesBase(
+        input_folder=tmp_path, output_folder=tmp_path
+    )
+    problem.read()
+
+    values = TimeseriesValues(problem.times(), np.asarray([7.0, 8.0, 9.0]))
+    problem.set_timeseries("x", values, 1, False)
+
+    np.testing.assert_allclose(problem.get_timeseries("x", 0).values, [1.0, 2.0, 3.0])
+    np.testing.assert_allclose(problem.get_timeseries("x", 1).values, [7.0, 8.0, 9.0])
+
+
 def test_fews_io_mixin_reports_non_equidistant_optimization_input(tmp_path):
     _write_case(tmp_path, dt=None)
     problem = _DefaultTimesOptimizationProblem(
