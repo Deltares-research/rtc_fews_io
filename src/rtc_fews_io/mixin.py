@@ -609,10 +609,11 @@ class FewsIOMixin:
             ensemble_size=1,
             contains_ensemble=self.__timeseries_import.contains_ensemble,
         )
+        self._add_staged_output_series(output)
+        self._add_buffered_output_series(output)
         for variable in getattr(self, "_io_output_variables", ()):
             values = np.asarray(getattr(self, "_io_output", {})[variable])
             self._add_output_series(output, variable, values, 0)
-        self._add_buffered_output_series(output)
         return output
 
     def _add_output_series(

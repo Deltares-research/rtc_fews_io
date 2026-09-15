@@ -412,6 +412,38 @@ def test_fews_io_mixin_writes_series_staged_in_timeseries_export(tmp_path):
     )
 
 
+def test_fews_io_mixin_simulation_writes_series_staged_in_timeseries_export(tmp_path):
+    _write_case(tmp_path)
+    data_config = """<?xml version="1.0" encoding="UTF-8"?>
+<rtcDataConfig xmlns="http://www.wldelft.nl/fews">
+    <timeSeries id="x">
+        <PITimeSeries>
+            <locationId>Loc</locationId>
+            <parameterId>X</parameterId>
+        </PITimeSeries>
+    </timeSeries>
+    <timeSeries id="x_postprocessed">
+        <PITimeSeries>
+            <locationId>Loc</locationId>
+            <parameterId>X</parameterId>
+            <qualifierId>Postprocessed</qualifierId>
+        </PITimeSeries>
+    </timeSeries>
+</rtcDataConfig>
+"""
+    (tmp_path / "rtcDataConfig.xml").write_text(data_config, encoding="utf-8")
+    problem = _SimulationProblem(input_folder=tmp_path, output_folder=tmp_path)
+
+    problem.read()
+    problem.timeseries_export.set("x_postprocessed", [30.0, 31.0, 32.0])
+    problem.write()
+
+    exported = FewsTimeSeries.read(tmp_path / "timeseries_export.xml")
+    np.testing.assert_allclose(
+        exported.get("Loc:X:Postprocessed"), [30.0, 31.0, 32.0]
+    )
+
+
 def test_fews_io_mixin_bounds_preserves_super_mapping_type(tmp_path):
     _write_case(tmp_path)
     problem = _OptimizationProblemWithCustomBounds(
