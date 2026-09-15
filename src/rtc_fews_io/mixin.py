@@ -331,9 +331,10 @@ class FewsIOMixin:
         """Return simulation outputs, or delegate to the host optimization problem."""
         if not self._is_simulation_mode() or not hasattr(self, "_io_output"):
             return _call_super_if_present(super(), "extract_results", *args, **kwargs)
-        return {
-            variable: np.asarray(values) for variable, values in self._io_output.items()
-        }
+        results = self._io_output.copy()
+        for variable in results:
+            results[variable] = np.asarray(results[variable])
+        return results
 
     def timeseries_at(self, variable: str, t: float, ensemble_member: int = 0) -> float:
         """Interpolate an imported time series at seconds ``t``."""

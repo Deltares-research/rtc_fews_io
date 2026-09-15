@@ -98,6 +98,13 @@ class _CopyPreservingMapping(dict):
         return type(self)(self)
 
 
+class _AliasPreservingMapping(_CopyPreservingMapping):
+    def __getitem__(self, key):
+        if key == "VZM_storage":
+            key = "storage_VZM.V"
+        return super().__getitem__(key)
+
+
 class _BoundsBase(_BaseProblem):
     def bounds(self, ensemble_member=None):
         del ensemble_member
@@ -276,6 +283,19 @@ def test_fews_io_mixin_reads_selected_simulation_ensemble_and_writes_single_outp
     exported = FewsTimeSeries.read(tmp_path / "timeseries_export.xml")
     assert exported.ensemble_size == 1
     np.testing.assert_allclose(exported.get("Loc:X"), [20.0, 21.0, 22.0])
+
+
+def test_fews_io_mixin_extract_results_preserves_alias_lookup(tmp_path):
+    _write_case(tmp_path)
+    problem = _SimulationProblem(input_folder=tmp_path, output_folder=tmp_path)
+    problem._io_output = _AliasPreservingMapping(
+        {"storage_VZM.V": [10.0, 11.0, 12.0]}
+    )
+
+    results = problem.extract_results()
+
+    assert isinstance(results, _AliasPreservingMapping)
+    np.testing.assert_allclose(results["VZM_storage"], [10.0, 11.0, 12.0])
 
 
 def test_fews_io_mixin_get_timeseries_ignores_abstract_super_placeholder(tmp_path):
