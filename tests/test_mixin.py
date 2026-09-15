@@ -435,10 +435,13 @@ def test_fews_io_mixin_simulation_writes_series_staged_in_timeseries_export(tmp_
     problem = _SimulationProblem(input_folder=tmp_path, output_folder=tmp_path)
 
     problem.read()
-    problem.timeseries_export.set("x_postprocessed", [30.0, 31.0, 32.0])
+    problem.timeseries_export.set(
+        "x_postprocessed", [30.0, 31.0, 32.0], unit="m"
+    )
     problem.write()
 
     exported = FewsTimeSeries.read(tmp_path / "timeseries_export.xml")
+    assert exported.get_unit("Loc:X:Postprocessed") == "m"
     np.testing.assert_allclose(
         exported.get("Loc:X:Postprocessed"), [30.0, 31.0, 32.0]
     )

@@ -617,7 +617,13 @@ class FewsIOMixin:
         return output
 
     def _add_output_series(
-        self, output: FewsTimeSeries, variable: str, values: Any, ensemble_member: int
+        self,
+        output: FewsTimeSeries,
+        variable: str,
+        values: Any,
+        ensemble_member: int,
+        *,
+        unit: str | None = None,
     ) -> None:
         assert self.__timeseries_import is not None
         try:
@@ -636,7 +642,7 @@ class FewsIOMixin:
             variable,
             array,
             key=key,
-            unit=self.__timeseries_import.get_unit(variable, 0),
+            unit=unit or self.__timeseries_import.get_unit(variable, 0),
             ensemble_member=ensemble_member,
         )
 
@@ -645,14 +651,28 @@ class FewsIOMixin:
             return
         for ensemble_member, series in self.__timeseries_export.values.items():
             for variable, values in series.items():
-                self._add_output_series(output, variable, values, ensemble_member)
+                self._add_output_series(
+                    output,
+                    variable,
+                    values,
+                    ensemble_member,
+                    unit=self.__timeseries_export.get_unit(variable, ensemble_member),
+                )
 
     def _add_buffered_output_series(self, output: FewsTimeSeries) -> None:
         if self.__timeseries_output_buffer is None:
             return
         for ensemble_member, series in self.__timeseries_output_buffer.values.items():
             for variable, values in series.items():
-                self._add_output_series(output, variable, values, ensemble_member)
+                self._add_output_series(
+                    output,
+                    variable,
+                    values,
+                    ensemble_member,
+                    unit=self.__timeseries_output_buffer.get_unit(
+                        variable, ensemble_member
+                    ),
+                )
 
     def _is_simulation_mode(self) -> bool:
         if self.fews_io_mode == "simulation":
