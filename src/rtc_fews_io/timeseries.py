@@ -166,12 +166,10 @@ class FewsTimeSeries:
         unit: str | None = None,
         ensemble_member: int = 0,
     ) -> None:
-        """Set or replace values for a variable.
-        `values` must have the same length as `times`.
-        """
+        """Set or replace values for a variable."""
         self._require_ensemble_member(ensemble_member, allow_create=True)
         array = np.asarray(list(values))
-        if len(array) != len(self.times):
+        if self.dt is None and len(array) != len(self.times):
             raise ValueError(
                 f"Length of values ({len(array)}) must match length of times ({len(self.times)})."
             )
@@ -223,12 +221,18 @@ class FewsTimeSeries:
                     end_date=self.end_datetime,
                     **header_kwargs,
                 )
+                if self.dt is not None:
+                    event_times = [
+                        self.start_datetime + i * self.dt for i in range(len(values))
+                    ]
+                else:
+                    event_times = self.times[: len(values)]
                 events = [
                     {
                         "date": time,
                         "value": _event_value_for_write(value, self.miss_value),
                     }
-                    for time, value in zip(self.times, values, strict=True)
+                    for time, value in zip(event_times, values)
                 ]
                 series.append(fx.create_pi_series(header=header, events=events))
         return fx.create_pi_timeseries(

@@ -110,6 +110,46 @@ def test_roundtrip_to_pi_timeseries_and_xml(tmp_path):
     )
 
 
+def test_roundtrip_series_with_differing_lengths_using_dt(tmp_path):
+    """
+    Expected behavior:
+    When working with an equidistant timeseries collection (`dt is not None`), individual series
+    may have lengths differing from the nominal `len(times)` (for example, when an output
+    series covers an extended simulation timeline or full historical+forecast period).
+    `FewsTimeSeries` must:
+    1. Accept setting the series via `set()` without requiring `len(values) == len(self.times)`.
+    2. Dynamically generate sequential event timestamps starting at `start_datetime` with step
+       `dt` for all elements of `values` during `to_pi_timeseries()` and `write()`, replicating
+       the behavior of RTC-Tools `pi.Timeseries.write()`.
+    3. Correctly serialize missing values (`np.nan`) as FEWS `<missVal>` (`-999`) and all numeric
+       values without truncation or IndexError.
+    """
+    # Create an equidistant timeseries object with 2 nominal times: 00:00 and 01:00
+    ts = FewsTimeSeries(
+        times=[datetime(2024, 1, 1, 0), datetime(2024, 1, 1, 1)],
+        timezone=None,
+        forecast_datetime=datetime(2024, 1, 1, 0),
+        dt=timedelta(hours=1),
+        version="1.2",
+    )
+    # Set a series containing 3 elements (longer than self.times), with leading NaN
+    ts.set(
+        "Loc:Param:Q1",
+        [np.nan, 2.0, 3.0],
+        key=PiSeriesKey("Loc", "Param", ("Q1",)),
+        unit="m",
+    )
+    output_path = tmp_path / "timeseries_export.xml"
+    ts.write(output_path)
+
+    # Verify that all 3 events are serialized into the XML file with missing value (-999)
+    # and valid numbers (2.0 and 3.0) intact
+    xml = output_path.read_text(encoding="utf-8")
+    assert 'value="-999"' in xml
+    assert 'value="2.0"' in xml
+    assert 'value="3.0"' in xml
+
+
 def _header(location, parameter, start, end, **kwargs):
     return fx.create_pi_header(
         type="instantaneous",

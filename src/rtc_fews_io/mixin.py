@@ -434,9 +434,10 @@ class FewsIOMixin:
                 variable, self.__timeseries_import.times, padded, ensemble_member
             )
 
-        self.__timeseries_import.set(
-            variable, padded, unit=unit, ensemble_member=ensemble_member
-        )
+        if self._is_simulation_mode():
+            self.__timeseries_import.set(
+                variable, padded, unit=unit, ensemble_member=ensemble_member
+            )
 
         if output and self.__timeseries_output_buffer is not None:
             try:
@@ -636,7 +637,9 @@ class FewsIOMixin:
             return
 
         array = np.asarray(values)
-        if len(array) != len(output.times):
+        if (
+            not self._is_simulation_mode() or output.dt is None
+        ) and len(array) != len(output.times):
             array = _interpolate_if_possible(self, variable, output.times, array)
         output.set(
             variable,
@@ -948,6 +951,8 @@ def _values_on_import_axis(
             padded[start: start + len(array)] = array
         return padded
 
+    if not check_consistency and len(array) == len(imported_times):
+        return array
     if check_consistency and len(array) != len(forecast_times):
         raise ValueError(
             f"FewsIOMixin: Trying to set values for {variable} with a different length "
@@ -970,6 +975,16 @@ def _seconds_step(seconds: np.ndarray) -> timedelta | None:
 def _interpolate_if_possible(
     problem: Any, variable: str, output_times: list[datetime], values: np.ndarray
 ) -> np.ndarray:
+    imported_datetimes = problem.timeseries_import.times
+    if len(values) == len(imported_datetimes):
+        index_by_datetime = {
+            datetime_value: index
+            for index, datetime_value in enumerate(imported_datetimes)
+        }
+        if all(datetime_value in index_by_datetime for datetime_value in output_times):
+            return np.asarray(
+                [values[index_by_datetime[datetime_value]] for datetime_value in output_times]
+            )
     if not hasattr(problem, "interpolate"):
         raise ValueError(
             f"Output values for {variable!r} do not match the export time axis length."
